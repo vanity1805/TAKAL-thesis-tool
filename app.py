@@ -12,6 +12,7 @@ If that file is missing, run the pipeline first (see model/README.md).
 
 import json
 import os
+from datetime import datetime
 
 import numpy as np
 import plotly.graph_objects as go
@@ -28,8 +29,13 @@ def load_results(path: str, _mtime: float) -> dict:
     with open(path, encoding="utf-8") as fh:
         return json.load(fh)
 
-CHART_COLORS = {"actual": "#10b981", "multivariate": "#0ea5e9", "univariate": "#64748b"}
-BAR_COLORS = ["#f59e0b", "#fbbf24", "#fcd34d", "#fde047", "#fef08a", "#fef3c7"]
+# TAKAL Brand Palette (Strictly Adhered To)
+CHART_COLORS = {
+    "actual": "#4a7c59",       # Muted Green
+    "multivariate": "#2c3e50", # Dark Blue-Gray
+    "univariate": "#94a3b8"    # Neutral Slate
+}
+BAR_COLOR = "#2c3e50"
 
 try:
     RESULTS = load_results(RESULTS_PATH, os.path.getmtime(RESULTS_PATH))
@@ -47,41 +53,26 @@ forecast_data = RESULTS["forecast"]
 metrics = RESULTS["metrics"]
 dm_test = RESULTS["dm_test"]
 
-# Ordered (feature, mean|SHAP|) pairs per model — drives the bar chart and the
-# variable pickers. SHAP values are expressed in PHP/kg.
 shap_data = {
     model: list(zip(RESULTS["shap"][model]["features"], RESULTS["shap"][model]["bar"]))
     for model in ("multivariate", "univariate")
 }
-# Baseline E[f(x)] each local explanation departs from (PHP/kg).
 BASE_VALUE = {model: RESULTS["shap"][model]["base_value"] for model in ("multivariate", "univariate")}
 
-# Seeded jitter only affects the vertical spread of beeswarm points (cosmetic).
 _JITTER_RNG = np.random.default_rng(42)
 
-
 def _beeswarm_points(model: str, feature: str):
-    """Real per-observation SHAP values + normalized feature values for colouring."""
     d = RESULTS["shap"][model]["beeswarm"][feature]
     sv = np.asarray(d["shap"], dtype=float)
     fv = np.asarray(d["feature_value"], dtype=float)
     jitter = _JITTER_RNG.random(len(sv)) * 0.7 - 0.35
     return sv, fv, jitter
 
-
 def _dependence_points(model: str, variable: str):
-    """Real (feature value, SHAP attribution) pairs across test observations."""
     d = RESULTS["shap"][model]["dependence"][variable]
     return np.asarray(d["x"], dtype=float), np.asarray(d["y"], dtype=float)
 
-
 def local_shap(model: str, week_idx: int):
-    """Real per-feature SHAP contributions for a SINGLE predicted week.
-
-    Returns features ordered by absolute impact (ascending), their signed
-    contributions (which sum to predicted - baseline), the baseline E[f(x)],
-    and the predicted value f(x).
-    """
     entry = RESULTS["shap"][model]["local"][week_idx]
     contributions = entry["contributions"]
     feats = list(contributions.keys())
@@ -89,113 +80,469 @@ def local_shap(model: str, week_idx: int):
     base = BASE_VALUE[model]
     predicted = entry["predicted"]
 
-    order = np.argsort(np.abs(contrib))  # ascending: small near base, large near f(x)
+    order = np.argsort(np.abs(contrib))
     feats = [feats[i] for i in order]
     contrib = contrib[order]
     return feats, contrib, base, predicted
 
+def format_week_date(date_str: str) -> str:
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        return dt.strftime("%B %d, %Y")
+    except Exception:
+        return date_str
 
 # --------------------------------------------------------------------------- #
-# Page config + CSS (card styling)
+# Page config + CSS (Adaptive Modern SaaS Dashboard System)
 # --------------------------------------------------------------------------- #
 st.set_page_config(
-    page_title="TAKAL — Time-Series Analysis & Knowledge Attribution for Local Rice",
-    page_icon="🍚",
+    page_title="TAKAL - Time-Series Analysis & Knowledge Attribution for Local Rice",
+    page_icon="Logo.png",
     layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 st.markdown(
     """
     <style>
-      .block-container { padding-top: 4rem; max-width: 1280px; }
-      .app-title {
-        font-size: 1.9rem; font-weight: 700; letter-spacing: -0.02em;
-        line-height: 1.3; margin: 0; padding: 0.15rem 0; margin-top: 0.4rem;
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+      
+      :root {
+        --brand-navy: #2c3e50;
+        --brand-green: #4a7c59;
+        --brand-slate: #64748b;
+        --border-adaptive: rgba(128, 128, 128, 0.2); 
       }
-      .card {
-        background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;
-        padding: 1rem 1.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-        margin-bottom: 0.5rem;
+      
+      /* Base Typography */
+      html, body, [class*="css"]  {
+        font-family: 'Inter', sans-serif !important;
       }
-      .stat {
-        background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
-        padding: 0.85rem 1rem; height: 100%;
+      
+      .block-container { 
+        padding-top: 3.5rem !important; 
+        padding-bottom: 4rem;
+        max-width: 1400px; 
       }
-      .stat-label { font-size: 0.8rem; color: #64748b; font-weight: 600; margin: 0; }
-      .stat-value { font-size: 1.6rem; font-weight: 700; margin: 0.2rem 0 0 0; }
-      .stat-sub   { font-size: 0.72rem; color: #94a3b8; margin: 0; }
-      .badge {
-        display: inline-block; padding: 0.1rem 0.55rem; border-radius: 9999px;
-        font-size: 0.7rem; font-weight: 600; color: #fff;
+
+      /* Sidebar Customization */
+      [data-testid="stSidebar"] {
+        border-right: 1px solid var(--border-adaptive);
       }
-      table.cmp { width: 100%; border-collapse: collapse; }
-      table.cmp th, table.cmp td { padding: 0.6rem 0.9rem; font-size: 0.85rem; }
-      table.cmp th { color: #64748b; text-align: right; border-bottom: 1px solid #e2e8f0; }
-      table.cmp th:first-child, table.cmp td:first-child { text-align: left; }
-      table.cmp td { text-align: right; font-variant-numeric: tabular-nums; }
-      .verdict {
-        background: #f0fdf4; border-radius: 10px; padding: 1rem; text-align: center;
+      .sidebar-brand-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1.75rem;
       }
-      /* Make the Active Model dropdown non-typeable (read-only look) while
-         keeping it clickable: block the search input but allow the menu to open. */
-      .st-key-active_model div[data-baseweb="select"] input {
-        caret-color: transparent;
-        pointer-events: none;
-        user-select: none;
+      .sidebar-brand-container {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .sidebar-brand {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--brand-navy);
+        line-height: 1;
+        margin: 0;
+      }
+      .sidebar-subtitle {
+        font-size: 0.72rem;
+        color: var(--text-color);
+        opacity: 0.7;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+        line-height: 1.4;
+        margin: 0;
+      }
+
+      /* Page & Section Headers */
+      .page-header {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-color);
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .section-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--text-color);
+        margin-top: 2.5rem;
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .custom-tooltip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        cursor: help;
+        color: var(--text-color);
+        opacity: 0.4;
+        transition: opacity 0.2s ease;
+      }
+      .custom-tooltip:hover {
+        opacity: 0.8;
+      }
+      .custom-tooltip-text {
+        visibility: hidden;
+        width: max-content;
+        max-width: 320px;
+        background-color: var(--brand-navy);
+        color: #ffffff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 0.75rem 1rem;
+        position: absolute;
+        z-index: 9999;
+        bottom: 130%;
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.2s ease, bottom 0.2s ease;
+        font-size: 0.8rem;
+        font-weight: 500;
+        line-height: 1.5;
+        letter-spacing: normal;
+        text-transform: none;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      }
+      .custom-tooltip-text::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -6px;
+        border-width: 6px;
+        border-style: solid;
+        border-color: var(--brand-navy) transparent transparent transparent;
+      }
+      .custom-tooltip:hover .custom-tooltip-text {
+        visibility: visible;
+        opacity: 1;
+        bottom: 150%;
+      }
+      .info-icon {
+        width: 18px;
+        height: 18px;
+        fill: currentColor;
+      }
+
+      /* Base Flat Card Classes */
+      .metric-card, .bench-card, .dm-result-card, .table-container {
+        background-color: var(--secondary-background-color);
+        border: 1px solid var(--border-adaptive);
+        border-radius: 8px;
+        box-shadow: none !important;
+      }
+
+      /* Overview Metric Cards */
+      .metric-card {
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        height: 100%;
+      }
+      .metric-header {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-color);
+        opacity: 0.7;
+      }
+      .metric-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text-color);
+        line-height: 1.2;
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      .metric-sub {
+        font-size: 0.8rem;
+        color: var(--text-color);
+        opacity: 0.8;
+      }
+      .metric-sub strong {
+        color: var(--brand-green);
+        font-weight: 600;
+      }
+      .metric-sub strong.neutral {
+        color: var(--text-color);
+        opacity: 0.9;
+      }
+
+      /* Benchmarking Specific Cards */
+      .bench-card {
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        height: 100%;
+      }
+      .bench-header { font-size: 0.85rem; font-weight: 600; color: var(--text-color); opacity: 0.7; }
+      .bench-value { font-size: 1.25rem; font-weight: 700; color: var(--text-color); }
+      .bench-sub { font-size: 0.75rem; color: var(--text-color); opacity: 0.5; }
+
+      .dm-result-card {
+        padding: 1.5rem;
+        margin-top: 1rem;
+      }
+      .dm-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.6; margin-bottom: 0.5rem;}
+      .dm-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; }
+      .dm-text { font-size: 0.9rem; opacity: 0.7; line-height: 1.5; }
+
+      /* Modern Tables */
+      .table-container {
+        overflow: hidden;
+      }
+      table.modern-table { 
+        width: 100%; 
+        border-collapse: collapse; 
+      }
+      table.modern-table th, table.modern-table td { 
+        padding: 1rem 1.5rem; 
+        font-size: 0.85rem; 
+      }
+      table.modern-table th { 
+        color: var(--text-color);
+        opacity: 0.7;
+        font-weight: 600;
+        text-align: right; 
+        border-bottom: 1px solid var(--border-adaptive); 
+        background-color: rgba(128, 128, 128, 0.05);
+      }
+      table.modern-table th:first-child, table.modern-table td:first-child { 
+        text-align: left; 
+      }
+      table.modern-table td { 
+        text-align: right; 
+        color: var(--text-color);
+        font-weight: 500;
+        border-bottom: 1px solid var(--border-adaptive);
+      }
+      table.modern-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      /* --------------------------------------------------- */
+      /* Streamlit UX & Color Overrides */
+      /* --------------------------------------------------- */
+      
+      .st-key-active_model div[data-baseweb="select"] { border-radius: 6px; }
+
+      div[data-baseweb="select"], 
+      div[data-baseweb="select"] > div,
+      div[data-baseweb="select"] input {
+        cursor: pointer !important;
+      }
+      div[data-baseweb="select"] {
+        user-select: none !important;
+      }
+      div[data-baseweb="select"] input {
+        caret-color: transparent !important;
+      }
+      
+      div[data-baseweb="select"] > div:hover {
+        border-color: var(--brand-navy) !important;
+      }
+      div[data-baseweb="select"] > div:focus, 
+      div[data-baseweb="select"] > div:focus-within, 
+      div[data-baseweb="select"] > div:active {
+        border-color: var(--brand-navy) !important;
+        box-shadow: 0 0 0 1px var(--brand-navy) !important;
+        outline: none !important;
+      }
+      ul[role="listbox"] li[aria-selected="true"] {
+        background-color: rgba(44, 62, 80, 0.1) !important; 
+        color: var(--brand-navy) !important;
+      }
+
+      /* --------------------------------------------------- */
+      /* Sidebar Vertical Tabs (Buttons instead of Radio) */
+      /* --------------------------------------------------- */
+      [data-testid="stSidebar"] button {
+        justify-content: flex-start !important;
+        padding-left: 1rem !important;
+        border-radius: 6px !important;
+        transition: all 0.2s ease !important;
+        height: 2.75rem !important;
+      }
+      [data-testid="stSidebar"] button p {
+        font-weight: 500 !important;
+        font-size: 0.95rem !important;
+      }
+      [data-testid="stSidebar"] button[kind="secondary"] {
+        background-color: transparent !important;
+        border: 1px solid transparent !important;
+        color: var(--text-color) !important;
+        opacity: 0.8;
+      }
+      [data-testid="stSidebar"] button[kind="secondary"]:hover {
+        background-color: rgba(128, 128, 128, 0.08) !important;
+        opacity: 1;
+      }
+      [data-testid="stSidebar"] button[kind="primary"] {
+        background-color: var(--brand-navy) !important;
+        border: 1px solid var(--brand-navy) !important;
+        color: #ffffff !important;
+      }
+      [data-testid="stSidebar"] button[kind="primary"] p {
+        font-weight: 600 !important;
+      }
+
+      /* Main Area Tabs (Bar / Beeswarm) */
+      button[data-baseweb="tab"] {
+        font-family: 'Inter', sans-serif !important;
+      }
+      button[data-baseweb="tab"]:focus {
+        outline: none !important;
+        box-shadow: none !important;
+      }
+      div[data-baseweb="tab-list"] button[aria-selected="true"] {
+        color: var(--brand-navy) !important;
+        font-weight: 600 !important;
+      }
+      div[data-baseweb="tab-highlight"] {
+        background-color: var(--brand-navy) !important;
+      }
+      
+      /* Global Focus Fallback */
+      *:focus {
+        outline: none !important;
       }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+def render_section_header(title, tooltip_text):
+    icon_svg = '''<svg class="info-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-6h2zm0-8h-2V7h2z"/></svg>'''
+    return f"""
+    <div class="section-title">
+        {title}
+        <div class="custom-tooltip">
+            {icon_svg}
+            <span class="custom-tooltip-text">{tooltip_text}</span>
+        </div>
+    </div>
+    """
 
-def stat_card(label, value, sub="", accent=None):
-    border = f"border-left:4px solid {accent};" if accent else ""
+def render_metric(label, value, sub_val, sub_text, is_positive=True):
+    color_class = "" if is_positive else "neutral"
     st.markdown(
-        f"""<div class="stat" style="{border}">
-              <p class="stat-label">{label}</p>
-              <p class="stat-value">{value}</p>
-              <p class="stat-sub">{sub}</p>
-            </div>""",
+        f"""
+        <div class="metric-card">
+            <div class="metric-header">{label}</div>
+            <div class="metric-value">{value}</div>
+            <div class="metric-sub"><strong class="{color_class}">{sub_val}</strong> {sub_text}</div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
+def render_bench_card(title, value, sub):
+    return f"""
+    <div class="bench-card">
+        <div class="bench-header">{title}</div>
+        <div class="bench-value">{value}</div>
+        <div class="bench-sub">{sub}</div>
+    </div>
+    """
 
 # --------------------------------------------------------------------------- #
-# Header + global model toggle
+# State Initialization (Sidebar Tabs)
 # --------------------------------------------------------------------------- #
-head_left, head_right = st.columns([3, 2])
-with head_left:
+if "nav_selection" not in st.session_state:
+    st.session_state.nav_selection = "Overview"
+
+def set_nav(selection):
+    st.session_state.nav_selection = selection
+
+# --------------------------------------------------------------------------- #
+# Sidebar Layout
+# --------------------------------------------------------------------------- #
+with st.sidebar:
+    logo_path = "Logo.png"
+    encoded_logo = ""
+    if os.path.exists(logo_path):
+        import base64
+        with open(logo_path, "rb") as f:
+            encoded_logo = base64.b64encode(f.read()).decode()
+    
+    logo_img = f'<img src="data:image/png;base64,{encoded_logo}" style="width: 44px; height: auto;" />' if encoded_logo else ""
+
     st.markdown(
-        '<p class="app-title">Time-Series Analysis &amp; Knowledge Attribution for Local Rice (TAKAL)</p>',
-        unsafe_allow_html=True,
+        f"""
+        <div class="sidebar-brand-wrapper">
+            <div class="sidebar-brand-container">
+                {logo_img}
+                <h1 class="sidebar-brand">TAKAL</h1>
+            </div>
+            <div class="sidebar-subtitle">Time-Series Analysis & Knowledge Attribution for Local Rice</div>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
-with head_right:
+    
+    st.write("### General")
+    st.button("Overview", on_click=set_nav, args=["Overview"], use_container_width=True, type="primary" if st.session_state.nav_selection == "Overview" else "secondary")
+    st.button("Benchmarking", on_click=set_nav, args=["Benchmarking"], use_container_width=True, type="primary" if st.session_state.nav_selection == "Benchmarking" else "secondary")
+    st.button("Explainability", on_click=set_nav, args=["Explainability"], use_container_width=True, type="primary" if st.session_state.nav_selection == "Explainability" else "secondary")
+    
+    st.write("")
+    st.write("### Configuration")
     model_label = st.selectbox(
         "Active Model",
-        ["Multivariate Model (Economic Indicators)", "Univariate Model (Baseline)"],
-        key="active_model",
+        ["Multivariate Model", "Univariate Model (Baseline)"],
+        key="active_model"
     )
+
 active = "multivariate" if model_label.startswith("Multivariate") else "univariate"
 active_name = "Multivariate" if active == "multivariate" else "Univariate"
-
-st.divider()
-
-tab_forecast, tab_metrics, tab_shap = st.tabs(
-    ["📈 Price Forecast", "📊 Benchmarking", "💡 Explainability"]
-)
+nav_selection = st.session_state.nav_selection
 
 # --------------------------------------------------------------------------- #
-# Tab 1: Price Forecast (vs Actual)
+# Main Content Area
 # --------------------------------------------------------------------------- #
-with tab_forecast:
-    st.subheader(f"{N_WEEKS}-Week Forecast vs. Actual")
-    st.caption(
-        f"Predicted vs. actual observed retail rice prices over the {N_WEEKS}-week held-out "
-        f"test horizon (NCR, {WEEKS[0]} → {WEEKS[-1]}). The **{active_name}** model is active; the "
-        f"**Actual Price** line is the ground-truth reference."
+st.markdown(f'<div class="page-header"><div>{nav_selection}</div></div>', unsafe_allow_html=True)
+
+if nav_selection == "Overview":
+    
+    vals = forecast_data[active]
+    avg_gap = float(np.mean(np.abs(np.array(vals) - np.array(forecast_data["actual"]))))
+    change = vals[-1] - vals[0]
+    pct = change / vals[0] * 100
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        render_metric("Starting Price", f"₱{vals[0]:.2f}", format_week_date(WEEKS[0]), "Base week", True)
+    with c2:
+        render_metric("Ending Price", f"₱{vals[-1]:.2f}", format_week_date(WEEKS[-1]), "Forecast horizon", True)
+    with c3:
+        render_metric("Price Change", f"₱{change:+.2f}", f"{pct:+.1f}%", f"over {N_WEEKS} weeks", pct >= 0)
+    with c4:
+        render_metric("Avg. Gap vs Actual", f"₱{avg_gap:.2f}", "Mean", "Absolute Deviation", False)
+
+    st.write("")
+
+    tt_text = f"Predicted vs. actual observed retail rice prices over the {N_WEEKS}-week held-out test horizon (NCR, {WEEKS[0]} → {WEEKS[-1]}). The {active_name} model is active; the Actual Price line is the ground-truth reference."
+    st.markdown(render_section_header(f"{N_WEEKS}-Week Forecast vs. Actual", tt_text), unsafe_allow_html=True)
+    
+    st.markdown(
+        "<div style='font-size: 0.75rem; color: var(--text-color); opacity: 0.6; font-weight: 500; margin-top: -1rem; margin-bottom: 1rem;'>"
+        "(Click legend items below to toggle visibility)</div>", 
+        unsafe_allow_html=True
     )
-
+    
     fig = go.Figure()
 
     def _line(key, name):
@@ -206,7 +553,7 @@ with tab_forecast:
                 y=forecast_data[key],
                 name=name,
                 mode="lines+markers" if is_active else "lines",
-                line=dict(color=CHART_COLORS[key], width=3 if is_active else 1.5),
+                line=dict(color=CHART_COLORS[key], width=2.5 if is_active else 1.5),
                 opacity=1.0 if is_active else 0.4,
                 hovertemplate="%{y:.2f} ₱/kg<extra>" + name + "</extra>",
             )
@@ -214,155 +561,171 @@ with tab_forecast:
 
     _line("multivariate", "Multivariate Model")
     _line("univariate", "Univariate Model")
+    
     fig.add_trace(
         go.Scatter(
             x=WEEKS,
             y=forecast_data["actual"],
             name="Actual Price",
-            mode="lines+markers",
-            line=dict(color=CHART_COLORS["actual"], width=2.5, dash="dash"),
+            mode="lines",
+            line=dict(color=CHART_COLORS["actual"], width=2, dash="dash"),
             hovertemplate="%{y:.2f} ₱/kg<extra>Actual</extra>",
         )
     )
+    
     _allv = forecast_data["actual"] + forecast_data["multivariate"] + forecast_data["univariate"]
     _ylo, _yhi = min(_allv), max(_allv)
     _ypad = max(0.5, (_yhi - _ylo) * 0.12)
-    fig.update_yaxes(range=[_ylo - _ypad, _yhi + _ypad], tickprefix="₱", title="Price (PHP/kg)")
+    
+    fig.update_yaxes(range=[_ylo - _ypad, _yhi + _ypad], tickprefix="₱", title=dict(text="Price (PHP/kg)", font=dict(size=13, family="Inter", color="#2c3e50")))
     fig.update_layout(
-        height=420,
-        margin=dict(t=30, r=20, l=10, b=10),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        plot_bgcolor="white",
+        height=450,
+        margin=dict(t=10, r=20, l=10, b=20),
+        legend=dict(
+            orientation="h", 
+            yanchor="bottom", 
+            y=1.03, 
+            x=0,
+            bgcolor="rgba(128, 128, 128, 0.05)",
+            bordercolor="rgba(128, 128, 128, 0.2)",
+            borderwidth=1,
+            font=dict(size=13),
+            itemwidth=40
+        ),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        hovermode="x unified",
+        font=dict(family="Inter")
     )
-    fig.update_xaxes(showgrid=True, gridcolor="#eef2f7")
-    fig.update_yaxes(showgrid=True, gridcolor="#eef2f7")
-    st.plotly_chart(fig, width='stretch')
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(128, 128, 128, 0.15)", zeroline=False)
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(128, 128, 128, 0.15)", zeroline=False)
+    
+    st.plotly_chart(fig, use_container_width=True)
 
-    vals = forecast_data[active]
-    avg_gap = float(np.mean(np.abs(np.array(vals) - np.array(forecast_data["actual"]))))
-    change = vals[-1] - vals[0]
-    pct = change / vals[0] * 100
 
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        stat_card("Starting Price", f"₱{vals[0]:.2f}", WEEKS[0])
-    with c2:
-        stat_card("Ending Price", f"₱{vals[-1]:.2f}", WEEKS[-1])
-    with c3:
-        stat_card("Price Change", f"₱{change:+.2f}", f"{pct:+.1f}% over {N_WEEKS} weeks")
-    with c4:
-        stat_card("Avg. Gap vs. Actual", f"₱{avg_gap:.2f}",
-                  "Mean absolute deviation", accent="#10b981")
+elif nav_selection == "Benchmarking":
 
-# --------------------------------------------------------------------------- #
-# Tab 2: Benchmarking
-# --------------------------------------------------------------------------- #
-with tab_metrics:
-    st.subheader("Model Performance Metrics")
-    st.caption(f"Regression benchmarking for the **{active_name}** model.")
-
+    st.markdown(render_section_header("Model Performance Metrics", f"Regression benchmarking for the {active_name} model."), unsafe_allow_html=True)
+    
     m = metrics[active]
-    r2_ok = m["r2"] >= 0.9
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        stat_card("RMSE", f"{m['rmse']}", "Root Mean Square Error", accent="#0ea5e9")
+        st.markdown(render_bench_card("RMSE", f"{m['rmse']}", "Root Mean Square Error"), unsafe_allow_html=True)
     with c2:
-        stat_card("MAE", f"{m['mae']}", "Mean Absolute Error", accent="#10b981")
+        st.markdown(render_bench_card("MAE", f"{m['mae']}", "Mean Absolute Error"), unsafe_allow_html=True)
     with c3:
-        stat_card("MAPE", f"{m['mape']}%", "Mean Absolute Percentage Error", accent="#f59e0b")
+        st.markdown(render_bench_card("MAPE", f"{m['mape']}%", "Mean Absolute Percentage Error"), unsafe_allow_html=True)
     with c4:
-        stat_card(
-            "R² Score", f"{m['r2']}",
-            "✓ Statistically Significant" if r2_ok else "Coefficient of Determination",
-            accent="#10b981" if r2_ok else "#64748b",
-        )
+        st.markdown(render_bench_card("R² Score", f"{m['r2']}", "Coefficient of Determination"), unsafe_allow_html=True)
 
-    st.markdown("##### Model Comparison")
+    st.markdown(render_section_header("Model Comparison", "Regression metrics for the multivariate and univariate models evaluated over the same test period."), unsafe_allow_html=True)
+    
     mv, uv = metrics["multivariate"], metrics["univariate"]
-    g, r = "color:#16a34a;background:#f0fdf4;", "color:#dc2626;background:#fef2f2;"
     st.markdown(
         f"""
-        <table class="cmp">
-          <thead><tr><th>Model</th><th>RMSE</th><th>MAE</th><th>MAPE</th><th>R²</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>🟦 Multivariate</td>
-              <td style="{g}">{mv['rmse']}</td><td style="{g}">{mv['mae']}</td>
-              <td style="{g}">{mv['mape']}%</td><td style="{g}">{mv['r2']}</td>
-            </tr>
-            <tr>
-              <td>⬛ Univariate</td>
-              <td style="{r}">{uv['rmse']}</td><td style="{r}">{uv['mae']}</td>
-              <td style="{r}">{uv['mape']}%</td><td style="{r}">{uv['r2']}</td>
-            </tr>
-          </tbody>
-        </table>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("##### Diebold-Mariano Test Result")
-    d1, d2, d3 = st.columns(3)
-    with d1:
-        stat_card("Test Statistic", f"{dm_test['statistic']}")
-    with d2:
-        stat_card("P-Value", f"{dm_test['p_value']}")
-    with d3:
-        stat_card("Significance Level", f"α = {dm_test['alpha']}")
-
-    _sig = dm_test.get("significant", dm_test["p_value"] < dm_test["alpha"])
-    _better_name = "multivariate" if dm_test.get("better") == "multivariate" else "univariate"
-    if _sig:
-        _v_head, _v_color, _v_bg = "Reject H₀", "#15803d", "#f0fdf4"
-        _v_msg = (f"The {_better_name} model provides statistically significantly "
-                  f"superior forecasting accuracy.")
-    else:
-        _v_head, _v_color, _v_bg = "Fail to Reject H₀", "#92400e", "#fffbeb"
-        _v_msg = ("No statistically significant difference in forecasting accuracy "
-                  "between the two models.")
-    st.markdown(
-        f"""
-        <div class="verdict" style="background:{_v_bg};">
-          <p style="color:{_v_color};font-weight:600;margin:0;">Verdict:</p>
-          <p style="color:{_v_color};font-weight:700;font-size:1.2rem;margin:0.3rem 0;">{_v_head}</p>
-          <p style="color:{_v_color};font-weight:500;margin:0;">
-            {_v_msg}
-          </p>
+        <div class="table-container">
+            <table class="modern-table">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th>RMSE</th>
+                  <th>MAE</th>
+                  <th>MAPE</th>
+                  <th>R²</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="font-weight: 600;">Multivariate Model</td>
+                  <td>{mv['rmse']}</td>
+                  <td>{mv['mae']}</td>
+                  <td>{mv['mape']}%</td>
+                  <td>{mv['r2']}</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 600;">Univariate Model</td>
+                  <td>{uv['rmse']}</td>
+                  <td>{uv['mae']}</td>
+                  <td>{uv['mape']}%</td>
+                  <td>{uv['r2']}</td>
+                </tr>
+              </tbody>
+            </table>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-# --------------------------------------------------------------------------- #
-# Tab 3: Explainability (SHAP)
-# --------------------------------------------------------------------------- #
-with tab_shap:
-    st.subheader("Global Feature Importance (SHAP)")
-    st.caption(f"SHAP summary of feature contributions for the **{active_name}** model.")
+    st.markdown(render_section_header("Diebold-Mariano Test Result", "Statistical comparison of forecast errors between the two models."), unsafe_allow_html=True)
 
-    plot_type = st.radio("Plot type", ["Bar", "Beeswarm"], horizontal=True,
-                         label_visibility="collapsed")
+    _sig = dm_test.get("significant", dm_test.get("p_value", 1) < dm_test.get("alpha", 0.05))
+    stat = dm_test.get("statistic", 0.0) 
+    pval = dm_test.get("p_value", 1.0)
+    alpha = dm_test.get("alpha", 0.05)
 
+    dc1, dc2, dc3 = st.columns(3)
+    with dc1:
+        st.markdown(render_bench_card("Test Statistic", f"{stat:.4f}", ""), unsafe_allow_html=True)
+    with dc2:
+        st.markdown(render_bench_card("P-Value", f"{pval:.6f}", ""), unsafe_allow_html=True)
+    with dc3:
+        st.markdown(render_bench_card("Significance Level", f"α = {alpha}", ""), unsafe_allow_html=True)
+
+    if _sig:
+        result_title = "Reject H₀"
+        result_desc = "The Diebold-Mariano test indicates a statistically significant difference in forecasting accuracy between the two models. The test result identifies the multivariate model as having the lower forecast loss under the evaluated loss function."
+    else:
+        result_title = "Fail to Reject H₀"
+        result_desc = "The Diebold-Mariano test does not indicate a statistically significant difference in forecasting accuracy between the two models. Neither model demonstrates statistically superior forecast loss under the evaluated loss function."
+
+    st.markdown(
+        f"""
+        <div class="dm-result-card">
+            <div class="dm-label">STATISTICAL RESULT</div>
+            <div class="dm-title">{result_title}</div>
+            <div class="dm-text">{result_desc}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+elif nav_selection == "Explainability":
+    
+    tooltip_shap = (
+        "Measures how strongly each economic indicator drives retail rice price forecasts across the test period."
+    )
+    st.markdown(render_section_header("Global Feature Importance (SHapley Additive exPlanations)", tooltip_shap), unsafe_allow_html=True)
+    
     features = [f for f, _ in shap_data[active]]
     values = [v for _, v in shap_data[active]]
 
-    if plot_type == "Bar":
+    tab_bar, tab_bee = st.tabs(["Bar Chart", "Beeswarm Plot"])
+
+    with tab_bar:
         fig_bar = go.Figure(
             go.Bar(
                 x=values[::-1],
                 y=features[::-1],
                 orientation="h",
-                marker_color=[BAR_COLORS[i % len(BAR_COLORS)] for i in range(len(features))][::-1],
-                hovertemplate="%{x:.3f}<extra>%{y}</extra>",
+                marker_color=BAR_COLOR,
+                marker_line_width=0,
+                width=0.6,
+                hovertemplate="%{x:.3f} ₱/kg<extra>%{y}</extra>",
             )
         )
         fig_bar.update_layout(
-            height=400, margin=dict(t=20, r=40, l=10, b=20),
-            plot_bgcolor="white", xaxis_title="mean(|SHAP value|)",
+            height=350, 
+            margin=dict(t=10, r=20, l=10, b=20),
+            plot_bgcolor="rgba(0,0,0,0)", 
+            paper_bgcolor="rgba(0,0,0,0)",
+            xaxis_title="mean(|SHAP value|) in ₱/kg",
+            font=dict(family="Inter")
         )
-        fig_bar.update_xaxes(showgrid=True, gridcolor="#eef2f7", range=[0, max(values) * 1.15])
-        st.plotly_chart(fig_bar, width='stretch')
-    else:
+        fig_bar.update_xaxes(showgrid=True, gridcolor="rgba(128, 128, 128, 0.15)", range=[0, max(values) * 1.15])
+        st.plotly_chart(fig_bar, use_container_width=True)
+        
+    with tab_bee:
         fig_bee = go.Figure()
         for idx, feat in enumerate(features):
             sv, fv, jit = _beeswarm_points(active, feat)
@@ -372,33 +735,36 @@ with tab_shap:
                     y=np.full_like(sv, idx) + jit,
                     mode="markers",
                     marker=dict(
-                        color=fv, colorscale=[[0, "#3b82f6"], [0.5, "#a855f7"], [1, "#ec4899"]],
-                        cmin=0, cmax=1, size=6, opacity=0.7,
-                        colorbar=dict(title="Feature<br>value", tickvals=[0, 1],
-                                      ticktext=["Low", "High"]) if idx == 0 else None,
+                        color=fv, 
+                        colorscale=[[0, "#94a3b8"], [0.5, "#4a7c59"], [1, "#2c3e50"]],
+                        cmin=0, cmax=1, size=6, opacity=0.8,
+                        colorbar=dict(title="Value", tickvals=[0, 1], ticktext=["Low", "High"], thickness=10) if idx == 0 else None,
                         showscale=idx == 0,
                     ),
                     showlegend=False,
                     hovertemplate="SHAP %{x:.3f}<extra>" + feat + "</extra>",
                 )
             )
-        fig_bee.add_vline(x=0, line_color="#cbd5e1", line_width=2)
-        fig_bee.update_yaxes(tickvals=list(range(len(features))), ticktext=features,
-                             autorange="reversed")
-        fig_bee.update_xaxes(title="SHAP value (impact on model output)",
-                             showgrid=True, gridcolor="#eef2f7")
-        fig_bee.update_layout(height=480, margin=dict(t=20, r=20, l=10, b=40),
-                              plot_bgcolor="white")
-        st.plotly_chart(fig_bee, width='stretch')
+        fig_bee.add_vline(x=0, line_color="rgba(128, 128, 128, 0.5)", line_width=1)
+        fig_bee.update_yaxes(tickvals=list(range(len(features))), ticktext=features, autorange="reversed")
+        fig_bee.update_xaxes(title="SHAP value (impact on model output)", showgrid=True, gridcolor="rgba(128, 128, 128, 0.15)", zeroline=False)
+        fig_bee.update_layout(height=400, margin=dict(t=10, r=20, l=10, b=20), plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
+        st.plotly_chart(fig_bee, use_container_width=True)
 
-    st.divider()
-    st.subheader("Local Explanation — Why this week's price?")
-    st.caption(
-        "Per-prediction SHAP waterfall: how each indicator pushes a **specific week's** "
-        "forecast up or down from the baseline E[f(x)] to the final predicted price f(x)."
-    )
+    st.write("---")
 
-    sel_week = st.selectbox("Select forecast week", WEEKS, index=len(WEEKS) - 1)
+    st.markdown(render_section_header("Local Explanation", "Per-prediction SHAP waterfall: how each indicator pushes a specific week's forecast up or down from the baseline to the final predicted price."), unsafe_allow_html=True)
+    
+    col_sel_wf, _ = st.columns([1, 3])
+    with col_sel_wf:
+        sel_week = st.selectbox(
+            "Select forecast week", 
+            WEEKS, 
+            index=len(WEEKS) - 1, 
+            label_visibility="collapsed",
+            format_func=format_week_date
+        )
+        
     w_idx = WEEKS.index(sel_week)
     feats_l, contrib_l, base_v, pred_v = local_shap(active, w_idx)
 
@@ -411,53 +777,63 @@ with tab_shap:
             base=base_v,
             text=[f"{c:+.2f}" for c in contrib_l],
             textposition="outside",
-            connector=dict(line=dict(color="#cbd5e1")),
-            increasing=dict(marker=dict(color="#f59e0b")),  # pushes price UP
-            decreasing=dict(marker=dict(color="#3b82f6")),  # pushes price DOWN
+            connector=dict(line=dict(color="rgba(128, 128, 128, 0.3)", width=1)),
+            increasing=dict(marker=dict(color="#4a7c59")), 
+            decreasing=dict(marker=dict(color="#2c3e50")), 
             hovertemplate="%{y}: %{x:+.3f} ₱/kg<extra></extra>",
         )
     )
-    fig_wf.add_vline(x=base_v, line_dash="dash", line_color="#94a3b8",
-                     annotation_text=f"E[f(x)] = ₱{base_v:.2f}", annotation_position="top")
-    fig_wf.add_vline(x=pred_v, line_dash="dash", line_color="#16a34a",
-                     annotation_text=f"f(x) = ₱{pred_v:.2f}", annotation_position="top")
+    
+    fig_wf.add_vline(x=base_v, line_dash="dash", line_color="rgba(128, 128, 128, 0.5)", annotation_text="Baseline", annotation_position="top")
+    fig_wf.add_vline(x=pred_v, line_dash="solid", line_color="#2c3e50", annotation_text="Predicted", annotation_position="top")
+    
     pad = max(0.4, abs(pred_v - base_v) * 0.6)
-    fig_wf.update_xaxes(title="Predicted price (PHP/kg)", showgrid=True, gridcolor="#eef2f7",
-                        range=[min(base_v, pred_v) - pad, max(base_v, pred_v) + pad])
-    fig_wf.update_layout(height=420, margin=dict(t=40, r=30, l=10, b=40), plot_bgcolor="white")
-    st.plotly_chart(fig_wf, width='stretch')
+    fig_wf.update_xaxes(title="Predicted price (PHP/kg)", showgrid=True, gridcolor="rgba(128, 128, 128, 0.15)", range=[min(base_v, pred_v) - pad, max(base_v, pred_v) + pad])
+    fig_wf.update_layout(height=350, margin=dict(t=30, r=20, l=10, b=10), plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
+    st.plotly_chart(fig_wf, use_container_width=True)
+
+    st.markdown(
+        "<div style='display: flex; justify-content: center; gap: 2rem; font-size: 0.85rem; margin-top: -0.5rem; margin-bottom: 1.5rem; color: var(--text-color); opacity: 0.8;'>"
+        "<div><span style='color:#4a7c59'>■</span> Raises price</div>"
+        "<div><span style='color:#2c3e50'>■</span> Lowers price</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     move = pred_v - base_v
     top_feat = feats_l[int(np.argmax(np.abs(contrib_l)))]
     top_val = contrib_l[int(np.argmax(np.abs(contrib_l)))]
     direction = "increase" if move >= 0 else "decrease"
+    verbose_date = format_week_date(sel_week)
+    
     st.markdown(
-        f"**{sel_week}:** the {active_name} model predicts **₱{pred_v:.2f}/kg**, a "
-        f"**₱{move:+.2f}** {direction} from the baseline. The largest single driver is "
-        f"**{top_feat}** ({top_val:+.2f} ₱/kg). "
-        f"<span style='color:#f59e0b'>■</span> raises price · "
-        f"<span style='color:#3b82f6'>■</span> lowers price.",
+        f"<div style='font-size: 0.95rem; color: var(--text-color); margin-bottom: 2rem; line-height: 1.5; padding: 0.5rem 0;'>"
+        f"<strong>{verbose_date}</strong>: the {active_name} model predicts <strong>₱{pred_v:.2f}/kg</strong>, a "
+        f"<strong>₱{abs(move):.2f}</strong> {direction} from the baseline. The largest single driver is "
+        f"<strong>{top_feat}</strong> ({top_val:+.2f} ₱/kg)."
+        f"</div>",
         unsafe_allow_html=True,
     )
 
-    st.divider()
-    st.subheader("Feature Dependence Analysis")
-    st.caption("How an individual variable drives model attribution across test observations.")
+    st.write("---")
 
-    dep_var = st.selectbox("Select Variable", [f for f, _ in shap_data[active]])
+    st.markdown(render_section_header("Feature Dependence Analysis", "How an individual variable drives model attribution across test observations."), unsafe_allow_html=True)
+    
+    col_sel_dep, _ = st.columns([1, 3])
+    with col_sel_dep:
+        dep_var = st.selectbox("Isolate variable", [f for f, _ in shap_data[active]])
+        
     dx, dy = _dependence_points(active, dep_var)
-    colors = ["#f59e0b" if v > 0 else "#3b82f6" for v in dy]
+    colors = ["#4a7c59" if v > 0 else "#2c3e50" for v in dy]
+    
     fig_dep = go.Figure(
         go.Scatter(
             x=dx, y=dy, mode="markers",
-            marker=dict(color=colors, opacity=0.6, size=7),
-            hovertemplate=f"{dep_var}: " + "%{x:.1f}<br>SHAP: %{y:.3f}<extra></extra>",
+            marker=dict(color=colors, opacity=0.7, size=7, line=dict(width=0.5, color="rgba(128,128,128,0.2)")),
+            hovertemplate=f"{dep_var}: " + "%{x:.2f}<br>Attribution: %{y:+.3f} ₱/kg<extra></extra>",
         )
     )
-    fig_dep.add_hline(y=0, line_dash="dash", line_color="#cbd5e1",
-                      annotation_text="Zero Attribution", annotation_position="right")
-    fig_dep.update_xaxes(title=dep_var, showgrid=True, gridcolor="#eef2f7")
-    fig_dep.update_yaxes(title="SHAP Attribution Value", showgrid=True, gridcolor="#eef2f7")
-    fig_dep.update_layout(height=400, margin=dict(t=20, r=20, l=10, b=40), plot_bgcolor="white")
-    st.plotly_chart(fig_dep, width='stretch')
-    st.markdown(f"**How {dep_var} Drives Forecast Attribution**")
+    fig_dep.update_xaxes(title=dep_var, showgrid=True, gridcolor="rgba(128, 128, 128, 0.15)", zeroline=False)
+    fig_dep.update_yaxes(title="Price (PHP/kg)", showgrid=True, gridcolor="rgba(128, 128, 128, 0.15)", zeroline=False)
+    fig_dep.update_layout(height=400, margin=dict(t=10, r=20, l=10, b=20), plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
+    st.plotly_chart(fig_dep, use_container_width=True)
