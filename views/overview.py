@@ -61,7 +61,7 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
     latest_data_date = max(available_dates.values(), default=date(2026, 4, 30))
     today = date.today()
 
-    st.subheader("Every week")
+    st.subheader("Weekly forecast vs actual")
     st.caption(
         f"Available dates: {format_week_date(earliest_data_date.isoformat())} to "
         f"{format_week_date(latest_data_date.isoformat())}."
@@ -143,24 +143,6 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
     start_index = current_page * rows_per_page
     end_index = min(start_index + rows_per_page, total_rows)
 
-    summary_col, previous_col, next_col = st.columns([2.2, 1, 1])
-    with summary_col:
-        if total_rows:
-            st.markdown(
-                f'<div class="pagination-label">Showing {start_index + 1}–{end_index} of {total_rows:,} weeks</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown('<div class="pagination-label">No weekly results available</div>', unsafe_allow_html=True)
-    with previous_col:
-        if st.button("Previous", key="overview_previous", disabled=current_page == 0, use_container_width=True):
-            st.session_state["overview_page"] = max(0, current_page - 1)
-            st.rerun()
-    with next_col:
-        if st.button("Next", key="overview_next", disabled=current_page >= page_count - 1, use_container_width=True):
-            st.session_state["overview_page"] = min(page_count - 1, current_page + 1)
-            st.rerun()
-
     table_rows = []
     for week, predicted, actual in records[start_index:end_index]:
         try:
@@ -191,6 +173,24 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
         + "</tbody></table></div>",
         unsafe_allow_html=True,
     )
+
+    summary_col, previous_col, next_col = st.columns([2.2, 1, 1])
+    with summary_col:
+        if total_rows:
+            st.markdown(
+                f'<div class="pagination-label">Showing {start_index + 1}–{end_index} of {total_rows:,} weeks</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown('<div class="pagination-label">No weekly results available</div>', unsafe_allow_html=True)
+    with previous_col:
+        if st.button("Previous", key="overview_previous", disabled=current_page == 0, use_container_width=True):
+            st.session_state["overview_page"] = max(0, current_page - 1)
+            st.rerun()
+    with next_col:
+        if st.button("Next", key="overview_next", disabled=current_page >= page_count - 1, use_container_width=True):
+            st.session_state["overview_page"] = min(page_count - 1, current_page + 1)
+            st.rerun()
 
 
 def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool = False) -> None:

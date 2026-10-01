@@ -16,6 +16,7 @@ import streamlit as st
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_PATH = os.path.join(APP_DIR, "artifacts", "results.json")
 LOGO_PATH = os.path.join(APP_DIR, "Logo_New.png")
+BRAND_LOGO_PATH = os.path.join(APP_DIR, "New_Logo_FF.png")
 
 COLORS = {
     "actual": "#10b981",

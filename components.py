@@ -9,14 +9,14 @@ import os
 import plotly.graph_objects as go
 import streamlit as st
 
-from utils import COLORS, LOGO_PATH
+from utils import BRAND_LOGO_PATH, COLORS
 
 
 def apply_styles() -> None:
-    logo_b64 = ""
-    if os.path.exists(LOGO_PATH):
-        with open(LOGO_PATH, "rb") as logo_file:
-            logo_b64 = base64.b64encode(logo_file.read()).decode("ascii")
+    brand_logo_b64 = ""
+    if os.path.exists(BRAND_LOGO_PATH):
+      with open(BRAND_LOGO_PATH, "rb") as brand_logo_file:
+        brand_logo_b64 = base64.b64encode(brand_logo_file.read()).decode("ascii")
 
     st.markdown(
         f"""
@@ -90,18 +90,22 @@ def apply_styles() -> None:
             min-height: 0 !important;
           }}
           .st-key-home_reset button {{
-            min-height: 3.75rem; justify-content: flex-start; background: var(--takal-white);
+            min-height: 9rem; justify-content: center; background: transparent !important;
             border: 1px solid transparent; color: var(--takal-text); box-shadow: none;
+            transition: none !important;
           }}
-          .st-key-home_reset button:hover {{ background: var(--takal-paper); border-color: var(--takal-border); color: var(--takal-text); }}
+          .st-key-home_reset button:hover,
+          .st-key-home_reset button:focus,
+          .st-key-home_reset button:active {{
+            background: transparent !important; border-color: transparent !important;
+            color: var(--takal-text) !important; box-shadow: none !important; transform: none !important;
+          }}
           .st-key-home_reset button::before {{
-            content: ""; width: 2.75rem; height: 2.75rem; flex: 0 0 2.75rem;
-            margin-right: .65rem; background: center / contain no-repeat url("data:image/png;base64,{logo_b64}");
+            content: ""; display: block; width: 100%; height: 8rem;
+            background: center / contain no-repeat url("data:image/png;base64,{brand_logo_b64}");
+            filter: brightness(1.08) contrast(1.05);
           }}
-          .st-key-home_reset button p {{ font-size: 1.2rem; font-weight: 750; }}
-          .sidebar-branding {{ margin: -.15rem 0 1rem .25rem; }}
-          .sidebar-branding__title {{ color: var(--takal-text); font-size: 1.1rem; font-weight: 800; }}
-          .sidebar-branding__subtitle {{ color: var(--takal-muted); font-size: .72rem; line-height: 1.45; }}
+          .st-key-home_reset button p {{ position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }}
           [data-testid="stSidebar"] [data-testid="stFileUploader"] {{ margin-top: -.35rem; }}
           [data-testid="stSidebar"] [data-testid="stFileUploader"] > section {{ gap: .35rem; }}
           [data-testid="stSidebar"] [data-testid="stFileUploader"] label {{
@@ -216,12 +220,10 @@ def apply_styles() -> None:
             width: fit-content !important;
             margin-left: auto !important;
           }}
-          .weekly-table-wrap {{ overflow-x: auto; border: 1px solid var(--takal-border); border-radius: 6px; background: var(--takal-white); }}
-          table.weekly-table {{ width: 100%; border-collapse: collapse; color: var(--takal-text); }}
+          .weekly-table-wrap {{ overflow-x: auto; border: 1px solid var(--takal-border); border-radius: 6px; background: var(--takal-white); margin-bottom: 1rem; }}          table.weekly-table {{ width: 100%; border-collapse: collapse; color: var(--takal-text); }}
           .weekly-table thead th {{ position: sticky; top: 0; z-index: 1; background: var(--takal-white); }}
-          .weekly-table th {{ padding: .85rem 1rem; border-bottom: 1px solid var(--takal-border); color: var(--takal-muted); font-size: .8rem; font-weight: 700; text-align: left; white-space: nowrap !important; }}
-          .weekly-table th:nth-child(2), .weekly-table th:nth-child(3), .weekly-table td:nth-child(2), .weekly-table td:nth-child(3) {{ text-align: right; }}
-          .weekly-table td {{ padding: .82rem 1rem; border-bottom: 1px solid var(--takal-border); font-size: .98rem; white-space: nowrap !important; }}
+          .weekly-table th, .weekly-table td {{ padding: .82rem 1rem; border-bottom: 1px solid var(--takal-border); font-size: .98rem; text-align: left; white-space: nowrap !important; }}
+          .weekly-table th {{ color: var(--takal-muted); font-size: .8rem; font-weight: 700; }}
           .weekly-table tbody tr:last-child td {{ border-bottom: 0; }}
           .weekly-table tbody tr:hover {{ background: var(--takal-paper); }}
           .weekly-table tbody tr.current-week {{ background: rgba(16, 185, 129, .09); }}
@@ -232,6 +234,7 @@ def apply_styles() -> None:
           .weekly-actual {{ color: var(--takal-emerald); font-weight: 750; font-variant-numeric: tabular-nums; }}
           .weekly-not-yet {{ color: var(--takal-muted); font-style: italic; }}
           .pagination-label {{ padding-top: .45rem; color: var(--takal-muted); font-size: .82rem; }}
+          .weekly-table-wrap + div {{ margin-top: 1.5rem !important; }}
           .technical-card {{
             background: var(--takal-white); border: 1px solid var(--takal-border); border-radius: 6px;
             padding: 1rem 1.1rem; height: 100%;
@@ -247,6 +250,12 @@ def apply_styles() -> None:
           }}
           @keyframes takal-pulse {{ from {{ background-position: 100% 0; }} to {{ background-position: -100% 0; }} }}
           div[data-testid="stDataFrame"] {{ border: 1px solid var(--takal-border); border-radius: 6px; }}
+          div[data-testid="stDataFrame"] [role="columnheader"],
+          div[data-testid="stDataFrame"] [role="gridcell"],
+          div[data-testid="stDataFrame"] [role="columnheader"] > div,
+          div[data-testid="stDataFrame"] [role="gridcell"] > div {{
+            text-align: left !important; justify-content: flex-start !important;
+          }}
           [data-testid="stSidebar"] [data-testid="stRadio"] label {{ padding: .25rem 0; }}
           @media (prefers-reduced-motion: reduce) {{ .chart-skeleton {{ animation: none; }} }}
         </style>

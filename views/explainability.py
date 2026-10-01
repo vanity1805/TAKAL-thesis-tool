@@ -135,7 +135,12 @@ def render(shap_results: dict, weeks: list[str], active_model: str) -> None:
         f"a negative contribution lowers it. {largest_summary}After all listed contributions, the model "
         f"forecast is **₱{predicted_price:.2f}/kg**."
     )
-    st.dataframe(pd.DataFrame(explanation_rows), hide_index=True, use_container_width=True)
+    explanation_table = pd.DataFrame(explanation_rows).style.set_properties(
+        **{"text-align": "left"}
+    ).set_table_styles([
+        {"selector": "th", "props": [("text-align", "left")]},
+    ])
+    st.dataframe(explanation_table, hide_index=True, use_container_width=True)
 
     local_figure = go.Figure(
         go.Waterfall(

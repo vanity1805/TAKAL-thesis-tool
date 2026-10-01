@@ -36,7 +36,10 @@ def render(metrics: dict, dm_test: dict, week_count: int, active_model: str) -> 
             {"Model": "Univariate baseline", **metrics["univariate"]},
         ]
     ).rename(columns={"rmse": "RMSE", "mae": "MAE", "mape": "MAPE (%)", "r2": "R²"})
-    st.dataframe(comparison, hide_index=True, use_container_width=True)
+    comparison_style = comparison.style.set_properties(**{"text-align": "left"}).set_table_styles([
+        {"selector": "th", "props": [("text-align", "left")]},
+    ])
+    st.dataframe(comparison_style, hide_index=True, use_container_width=True)
 
     st.subheader("Are the forecast differences likely to be meaningful?")
     statistic = float(dm_test.get("statistic", 0.0))

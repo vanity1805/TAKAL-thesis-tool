@@ -36,20 +36,20 @@ st.session_state.setdefault("technical_details", False)
 st.session_state.setdefault("handled_upload_fingerprint", None)
 st.session_state.setdefault("pending_import", None)
 st.session_state.setdefault("imported_data", None)
+st.session_state.setdefault("technical_tabs_version", 0)
 
 
 def reset_to_overview() -> None:
     if not st.session_state.get("technical_details", False):
-        st.toast("You are already on the Overview section.", icon="ℹ️")
+        st.toast("You are already on the Overview section.")
+        return
+    st.session_state["overview_page"] = 0
+    st.session_state["technical_tab_default"] = "Forecast & Overview"
+    st.session_state["technical_tabs_version"] += 1
 
 
 with st.sidebar:
     st.button("TAKAL", key="home_reset", on_click=reset_to_overview, use_container_width=True)
-    st.markdown(
-        '<div class="sidebar-branding"><div class="sidebar-branding__title">TAKAL</div>'
-        '<div class="sidebar-branding__subtitle">Time-Series Analysis &amp; Knowledge Attribution for Local Rice Price Forecasting</div></div>',
-        unsafe_allow_html=True,
-    )
 
     model_label = st.selectbox(
         "Forecast shown",
@@ -106,7 +106,19 @@ if not st.session_state["technical_details"]:
         show_graph=False,
     )
 else:
-    tab_forecast, tab_metrics, tab_shap = st.tabs(["Forecast & Overview", "Benchmarking / Metrics", "Explainability / SHAP"])
+    tab_suffix = "\u200b" * int(st.session_state.get("technical_tabs_version", 0))
+    tab_forecast, tab_metrics, tab_shap = st.tabs(
+        [
+            f"Forecast & Overview{tab_suffix}",
+            f"Benchmarking / Metrics{tab_suffix}",
+            f"Explainability / SHAP{tab_suffix}",
+        ],
+        default=(
+            f"{st.session_state.get('technical_tab_default', 'Forecast & Overview')}{tab_suffix}"
+            if st.session_state.get("technical_tab_default", "Forecast & Overview") == "Forecast & Overview"
+            else st.session_state.get("technical_tab_default", "Forecast & Overview")
+        ),
+    )
 
     with tab_forecast:
         st.markdown('<div class="page-heading">Overview</div>', unsafe_allow_html=True)
