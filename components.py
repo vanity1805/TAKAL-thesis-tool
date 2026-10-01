@@ -150,13 +150,31 @@ def apply_styles() -> None:
           button[role="tab"][aria-selected="true"] {{ color: var(--takal-blue) !important; }}
           [data-testid="stToggle"] input:checked + div {{ background-color: var(--takal-blue) !important; border-color: var(--takal-blue) !important; }}
           [data-testid="stToggle"] input:checked + div:hover {{ background-color: #0284c7 !important; border-color: #0284c7 !important; }}
-          div[data-baseweb="select"] > div,
-          div[data-baseweb="select"] [role="combobox"] {{ border-color: var(--takal-border) !important; box-shadow: none !important; }}
-          div[data-baseweb="select"] [role="combobox"]:focus,
-          div[data-baseweb="select"] [role="combobox"][aria-expanded="true"],
-          div[data-baseweb="select"] > div:focus-within {{ border-color: var(--takal-blue) !important; box-shadow: 0 0 0 1px var(--takal-blue) !important; }}
-          div[data-baseweb="select"] [role="combobox"], div[data-baseweb="select"] input,
-          div[data-baseweb="select"] * {{ caret-color: transparent !important; cursor: pointer !important; user-select: none !important; }}
+          
+          div[data-baseweb="select"] > div {{
+            border-color: var(--takal-border) !important;
+            box-shadow: none !important;
+          }}
+          div[data-baseweb="select"] > div:focus-within {{
+            border-color: var(--takal-blue) !important;
+            box-shadow: 0 0 0 1px var(--takal-blue) !important;
+          }}
+          div[data-baseweb="select"] input,
+          div[data-baseweb="select"] [role="combobox"] {{
+            caret-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+          }}
+          div[data-baseweb="select"] * {{
+            caret-color: transparent !important;
+            cursor: pointer !important;
+            user-select: none !important;
+          }}
           div[data-baseweb="select"] [data-type="selected"] {{ background-color: rgba(14, 165, 233, .08) !important; color: var(--takal-text) !important; }}
           .stButton button[kind="primary"] {{ background-color: var(--takal-blue); border-color: var(--takal-blue); }}
           .stButton button[kind="primary"]:hover {{ background-color: #0284c7; border-color: #0284c7; }}
@@ -182,7 +200,7 @@ def apply_styles() -> None:
           }}
           .metric-info:hover::after, .metric-info:focus::after {{ opacity: 1; transform: translate(-50%, 0); }}
           .metric-value {{ color: var(--takal-text); font-size: 1.7rem; line-height: 1.35; font-weight: 750; font-variant-numeric: tabular-nums; }}
-          .metric-detail {{ color: var(--takal-muted); font-size: .82rem; }}
+          .metric-detail {{ color: var(-div[data-baseweb="select"] > div,-takal-muted); font-size: .82rem; }}
           [data-testid="stExpander"] {{ border: 1px solid var(--takal-border); border-radius: 6px; background: var(--takal-white); }}
           [data-testid="stExpander"] summary {{ padding: .55rem .8rem; }}
           [data-testid="stExpander"] .streamlit-expanderContent {{ padding: .2rem .8rem .7rem !important; }}
