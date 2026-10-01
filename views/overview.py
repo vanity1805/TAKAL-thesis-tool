@@ -80,10 +80,6 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
         st.session_state["overview_from_date"] = earliest_data_date
         st.session_state["overview_to_date"] = latest_data_date
 
-    if st.button("Back to default", key="overview_default_button"):
-        _reset_overview_filters(earliest_data_date, latest_data_date)
-        st.rerun()
-
     with st.expander("Filter weeks", expanded=False):
         from_col, to_col = st.columns(2)
         with from_col:
@@ -122,6 +118,13 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
                 key="overview_rows_per_page",
                 on_change=_reset_week_page,
             )
+
+        st.button(
+            "Back to default",
+            key="overview_default_button",
+            on_click=_reset_overview_filters,
+            args=(earliest_data_date, latest_data_date),
+        )
 
     records = [
         record

@@ -44,12 +44,50 @@ def apply_styles() -> None:
           [data-testid="stAppViewContainer"] .main .block-container {{
             max-width: 1440px; padding-top: 2rem; padding-bottom: 3rem;
           }}
-          [data-testid="stSidebar"] {{ background: var(--takal-white); border-right: 1px solid var(--takal-border); }}
-          [data-testid="stSidebar"] > div:first-child {{
-            min-height: 100vh; padding-top: 1.25rem; padding-bottom: 2.75rem;
+         [data-testid="stSidebar"] {{
+            background: var(--takal-white);
+            border-right: 1px solid var(--takal-border);
+          }}
+          [data-testid="stSidebar"],
+          [data-testid="stSidebar"] > div:first-child,
+          [data-testid="stSidebar"] [data-testid="stSidebarContent"],
+          [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{
+            overflow: hidden !important;
+            scrollbar-width: none !important;
+          }}
+          [data-testid="stSidebar"] *::-webkit-scrollbar {{
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+          }}
+          [data-testid="stSidebar"] > div:first-child,
+          [data-testid="stSidebar"] [data-testid="stSidebarContent"] {{
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            min-height: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
           }}
           [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{
-            min-height: calc(100vh - 4rem); display: flex; flex-direction: column;
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            padding-top: 0.25rem !important;
+            padding-bottom: 1.25rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+          }}
+          [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] > div,
+          [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"],
+          [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] > div,
+          [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {{
+            flex: 1 1 auto !important;
+            display: flex !important;
+            flex-direction: column !important;
+            min-height: 0 !important;
           }}
           .st-key-home_reset button {{
             min-height: 3.75rem; justify-content: flex-start; background: var(--takal-white);
@@ -87,8 +125,24 @@ def apply_styles() -> None:
           }}
           [data-testid="stSidebar"] [data-testid="stFileUploader"] + div {{ margin-top: .35rem; }}
           [data-testid="stSidebar"] [data-testid="stFileUploader"] + div [data-testid="stToggle"] {{ margin-top: 0; }}
+          [data-testid="stSidebar"] hr {{
+            width: 100% !important;
+            border: 0 !important;
+            border-top: 1px solid var(--takal-border) !important;
+            opacity: 1 !important;
+          }}
           [data-testid="stSidebar"] .st-key-technical_details {{
-            margin-top: auto; padding: .85rem 0 1.25rem; border-top: 1px solid var(--takal-border);
+            margin-top: auto !important;
+            padding: .85rem 0 .25rem !important;
+            border-top: 1px solid var(--takal-border) !important;
+            width: 100% !important;
+            display: flex !important;
+            justify-content: center !important;
+          }}
+          [data-testid="stSidebar"] .st-key-technical_details > div,
+          [data-testid="stSidebar"] .st-key-technical_details label {{
+            width: fit-content !important;
+            margin: 0 auto !important;
           }}
           h1, h2, h3 {{ color: var(--takal-text); letter-spacing: 0; }}
           .page-heading {{ color: var(--takal-text) !important; font-size: 1.8rem; font-weight: 750; margin: .1rem 0 .2rem; }}
@@ -132,6 +186,18 @@ def apply_styles() -> None:
           [data-testid="stExpander"] {{ border: 1px solid var(--takal-border); border-radius: 6px; background: var(--takal-white); }}
           [data-testid="stExpander"] summary {{ padding: .55rem .8rem; }}
           [data-testid="stExpander"] .streamlit-expanderContent {{ padding: .2rem .8rem .7rem !important; }}
+          [data-testid="stExpander"] {{ border: 1px solid var(--takal-border); border-radius: 6px; background: var(--takal-white); }}
+          [data-testid="stExpander"] summary {{ padding: .55rem .8rem; }}
+          [data-testid="stExpander"] .streamlit-expanderContent {{ padding: .2rem .8rem .7rem !important; }}
+          .st-key-overview_default_button {{
+            display: flex !important;
+            justify-content: flex-end !important;
+            width: 100% !important;
+          }}
+          .st-key-overview_default_button > div {{
+            width: fit-content !important;
+            margin-left: auto !important;
+          }}
           .weekly-table-wrap {{ overflow-x: auto; border: 1px solid var(--takal-border); border-radius: 6px; background: var(--takal-white); }}
           table.weekly-table {{ width: 100%; border-collapse: collapse; color: var(--takal-text); }}
           .weekly-table thead th {{ position: sticky; top: 0; z-index: 1; background: var(--takal-white); }}
