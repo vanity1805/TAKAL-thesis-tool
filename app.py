@@ -39,16 +39,17 @@ st.session_state.setdefault("imported_data", None)
 
 
 def reset_to_overview() -> None:
-    st.session_state["technical_details"] = False
+    if not st.session_state.get("technical_details", False):
+        st.toast("You are already on the Overview section.", icon="ℹ️")
 
 
 with st.sidebar:
     st.button("TAKAL", key="home_reset", on_click=reset_to_overview, use_container_width=True)
     st.markdown(
-        '<div class="sidebar-caption">Time-Series Analysis &amp; Knowledge Attribution for Local Rice</div>',
+        '<div class="sidebar-branding"><div class="sidebar-branding__title">TAKAL</div>'
+        '<div class="sidebar-branding__subtitle">Time-Series Analysis &amp; Knowledge Attribution for Local Rice Price Forecasting</div></div>',
         unsafe_allow_html=True,
     )
-    st.toggle("View Technical Details", key="technical_details")
 
     model_label = st.selectbox(
         "Forecast shown",
@@ -69,6 +70,7 @@ with st.sidebar:
         imported_frame = st.session_state.get("imported_data")
         if imported_frame is not None:
             st.caption(f"Session import: {st.session_state['imported_filename']} · {len(imported_frame):,} rows")
+    st.toggle("View Technical Details", key="technical_details")
 
 if uploaded_file is not None:
     uploaded_bytes = uploaded_file.getvalue()
@@ -104,7 +106,7 @@ if not st.session_state["technical_details"]:
         show_graph=False,
     )
 else:
-    tab_forecast, tab_metrics, tab_shap = st.tabs(["Forecast", "Metrics", "SHAP"])
+    tab_forecast, tab_metrics, tab_shap = st.tabs(["Forecast & Overview", "Benchmarking / Metrics", "Explainability / SHAP"])
 
     with tab_forecast:
         st.markdown('<div class="page-heading">Overview</div>', unsafe_allow_html=True)

@@ -21,6 +21,7 @@ def apply_styles() -> None:
     st.markdown(
         f"""
         <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
           :root {{
             --primary-color: {COLORS['multivariate']};
             --primary: {COLORS['multivariate']};
@@ -35,13 +36,21 @@ def apply_styles() -> None:
             --takal-text: {COLORS['text']};
             --takal-muted: {COLORS['muted']};
           }}
-          html, body, [class*="css"] {{ color: var(--takal-text); }}
+          html, body, [class*="css"], .stApp {{
+            color: var(--takal-text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+          }}
           .stApp {{ background: var(--takal-paper); }}
           [data-testid="stAppViewContainer"] .main .block-container {{
             max-width: 1440px; padding-top: 2rem; padding-bottom: 3rem;
           }}
           [data-testid="stSidebar"] {{ background: var(--takal-white); border-right: 1px solid var(--takal-border); }}
-          [data-testid="stSidebar"] > div:first-child {{ padding-top: 1.25rem; }}
+          [data-testid="stSidebar"] > div:first-child {{
+            min-height: 100vh; padding-top: 1.25rem; padding-bottom: 2.75rem;
+          }}
+          [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{
+            min-height: calc(100vh - 4rem); display: flex; flex-direction: column;
+          }}
           .st-key-home_reset button {{
             min-height: 3.75rem; justify-content: flex-start; background: var(--takal-white);
             border: 1px solid transparent; color: var(--takal-text); box-shadow: none;
@@ -52,7 +61,35 @@ def apply_styles() -> None:
             margin-right: .65rem; background: center / contain no-repeat url("data:image/png;base64,{logo_b64}");
           }}
           .st-key-home_reset button p {{ font-size: 1.2rem; font-weight: 750; }}
-          .sidebar-caption {{ color: var(--takal-muted); font-size: .76rem; line-height: 1.45; margin: -.15rem 0 1rem .25rem; }}
+          .sidebar-branding {{ margin: -.15rem 0 1rem .25rem; }}
+          .sidebar-branding__title {{ color: var(--takal-text); font-size: 1.1rem; font-weight: 800; }}
+          .sidebar-branding__subtitle {{ color: var(--takal-muted); font-size: .72rem; line-height: 1.45; }}
+          [data-testid="stSidebar"] [data-testid="stFileUploader"] {{ margin-top: -.35rem; }}
+          [data-testid="stSidebar"] [data-testid="stFileUploader"] > section {{ gap: .35rem; }}
+          [data-testid="stSidebar"] [data-testid="stFileUploader"] label {{
+            color: var(--takal-text); font-size: .84rem; font-weight: 600; margin-bottom: .15rem;
+          }}
+          [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {{
+            min-height: 0; padding: .75rem .8rem; border: 1px dashed var(--takal-border);
+            border-radius: 6px; background: var(--takal-paper);
+          }}
+          [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] > div {{ gap: .35rem; }}
+          [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] small {{
+            color: var(--takal-muted); font-size: .7rem; line-height: 1.25;
+          }}
+          [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button {{
+            min-height: 2rem; padding: .35rem .7rem; border: 1px solid var(--takal-blue);
+            border-radius: 5px; background: var(--takal-blue); color: var(--takal-white);
+            font-size: .78rem; font-weight: 600;
+          }}
+          [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button:hover {{
+            border-color: #0284c7; background: #0284c7; color: var(--takal-white);
+          }}
+          [data-testid="stSidebar"] [data-testid="stFileUploader"] + div {{ margin-top: .35rem; }}
+          [data-testid="stSidebar"] [data-testid="stFileUploader"] + div [data-testid="stToggle"] {{ margin-top: 0; }}
+          [data-testid="stSidebar"] .st-key-technical_details {{
+            margin-top: auto; padding: .85rem 0 1.25rem; border-top: 1px solid var(--takal-border);
+          }}
           h1, h2, h3 {{ color: var(--takal-text); letter-spacing: 0; }}
           .page-heading {{ color: var(--takal-text) !important; font-size: 1.8rem; font-weight: 750; margin: .1rem 0 .2rem; }}
           [data-baseweb="tab-highlight"] {{ background-color: var(--takal-blue) !important; }}
@@ -64,6 +101,8 @@ def apply_styles() -> None:
           div[data-baseweb="select"] [role="combobox"]:focus,
           div[data-baseweb="select"] [role="combobox"][aria-expanded="true"],
           div[data-baseweb="select"] > div:focus-within {{ border-color: var(--takal-blue) !important; box-shadow: 0 0 0 1px var(--takal-blue) !important; }}
+          div[data-baseweb="select"] [role="combobox"], div[data-baseweb="select"] input,
+          div[data-baseweb="select"] * {{ caret-color: transparent !important; cursor: pointer !important; user-select: none !important; }}
           div[data-baseweb="select"] [data-type="selected"] {{ background-color: rgba(14, 165, 233, .08) !important; color: var(--takal-text) !important; }}
           .stButton button[kind="primary"] {{ background-color: var(--takal-blue); border-color: var(--takal-blue); }}
           .stButton button[kind="primary"]:hover {{ background-color: #0284c7; border-color: #0284c7; }}
@@ -90,11 +129,15 @@ def apply_styles() -> None:
           .metric-info:hover::after, .metric-info:focus::after {{ opacity: 1; transform: translate(-50%, 0); }}
           .metric-value {{ color: var(--takal-text); font-size: 1.7rem; line-height: 1.35; font-weight: 750; font-variant-numeric: tabular-nums; }}
           .metric-detail {{ color: var(--takal-muted); font-size: .82rem; }}
+          [data-testid="stExpander"] {{ border: 1px solid var(--takal-border); border-radius: 6px; background: var(--takal-white); }}
+          [data-testid="stExpander"] summary {{ padding: .55rem .8rem; }}
+          [data-testid="stExpander"] .streamlit-expanderContent {{ padding: .2rem .8rem .7rem !important; }}
           .weekly-table-wrap {{ overflow-x: auto; border: 1px solid var(--takal-border); border-radius: 6px; background: var(--takal-white); }}
           table.weekly-table {{ width: 100%; border-collapse: collapse; color: var(--takal-text); }}
-          .weekly-table th {{ padding: .85rem 1rem; border-bottom: 1px solid var(--takal-border); color: var(--takal-muted); font-size: .8rem; font-weight: 700; text-align: left; }}
+          .weekly-table thead th {{ position: sticky; top: 0; z-index: 1; background: var(--takal-white); }}
+          .weekly-table th {{ padding: .85rem 1rem; border-bottom: 1px solid var(--takal-border); color: var(--takal-muted); font-size: .8rem; font-weight: 700; text-align: left; white-space: nowrap !important; }}
           .weekly-table th:nth-child(2), .weekly-table th:nth-child(3), .weekly-table td:nth-child(2), .weekly-table td:nth-child(3) {{ text-align: right; }}
-          .weekly-table td {{ padding: .82rem 1rem; border-bottom: 1px solid var(--takal-border); font-size: .98rem; }}
+          .weekly-table td {{ padding: .82rem 1rem; border-bottom: 1px solid var(--takal-border); font-size: .98rem; white-space: nowrap !important; }}
           .weekly-table tbody tr:last-child td {{ border-bottom: 0; }}
           .weekly-table tbody tr:hover {{ background: var(--takal-paper); }}
           .weekly-table tbody tr.current-week {{ background: rgba(16, 185, 129, .09); }}

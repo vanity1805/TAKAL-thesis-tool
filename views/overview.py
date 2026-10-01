@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import html
 import math
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 import numpy as np
 import plotly.graph_objects as go
@@ -36,6 +36,14 @@ def _to_date_changed() -> None:
     _reset_week_page()
 
 
+def _reset_overview_filters(earliest_data_date: date, latest_data_date: date) -> None:
+    st.session_state["overview_page"] = 0
+    st.session_state["overview_date_order"] = DATE_ORDER_OPTIONS[0]
+    st.session_state["overview_rows_per_page"] = ROWS_PER_PAGE_OPTIONS[0]
+    st.session_state["overview_from_date"] = earliest_data_date
+    st.session_state["overview_to_date"] = latest_data_date
+
+
 def _money(value: float) -> str:
     if not np.isfinite(value):
         return "Not available"
@@ -52,11 +60,8 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
     earliest_data_date = min(available_dates.values(), default=date(2025, 1, 1))
     latest_data_date = max(available_dates.values(), default=date(2026, 4, 30))
     today = date.today()
-    current_week = (today - timedelta(days=today.weekday())).isoformat()
 
     st.subheader("Every week")
-    if not any(week == current_week for week, _, _ in records):
-        st.caption("No forecast is available for the current week in the saved results.")
     st.caption(
         f"Available dates: {format_week_date(earliest_data_date.isoformat())} to "
         f"{format_week_date(latest_data_date.isoformat())}."
@@ -74,6 +79,10 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
     if st.session_state["overview_from_date"] > st.session_state["overview_to_date"]:
         st.session_state["overview_from_date"] = earliest_data_date
         st.session_state["overview_to_date"] = latest_data_date
+
+    if st.button("Back to default", key="overview_default_button"):
+        _reset_overview_filters(earliest_data_date, latest_data_date)
+        st.rerun()
 
     with st.expander("Filter weeks", expanded=False):
         from_col, to_col = st.columns(2)
@@ -151,7 +160,6 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
 
     table_rows = []
     for week, predicted, actual in records[start_index:end_index]:
-        is_current_week = week == current_week
         try:
             week_date = datetime.strptime(week, "%Y-%m-%d").date()
         except (TypeError, ValueError):
@@ -165,9 +173,7 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
             else '<span class="weekly-not-yet">Not yet</span>'
         )
         date_content = html.escape(format_week_date(week))
-        if is_current_week:
-            date_content += '<span class="weekly-current-badge">This week</span>'
-        row_class = ' class="current-week"' if is_current_week else ""
+        row_class = ""
         table_rows.append(
             f"<tr{row_class}><td><span class=\"weekly-table-date\">{date_content}</span></td>"
             f'<td><span class="weekly-forecast">{_money(float(predicted))}</span></td>'
