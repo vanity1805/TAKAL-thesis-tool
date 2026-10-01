@@ -212,24 +212,26 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
     change_text = "Rise" if horizon_change >= 0 else "Fall"
 
     st.markdown(
-        f'<div class="page-intro">Rice price forecasts across {len(weeks)} weeks, from '
-        f'{format_week_date(weeks[0])} to {format_week_date(weeks[-1])}.</div>',
+        f'<div class="page-intro">Weekly <strong>Regular-Milled</strong> retail rice price forecasts in the '
+        f'<strong>National Capital Region (NCR)</strong> across the {len(weeks)}-week held-out test set '
+        f'({format_week_date(weeks[0])} to {format_week_date(weeks[-1])}).</div>',
         unsafe_allow_html=True,
     )
+
     metric_columns = st.columns(4)
     with metric_columns[0]:
         metric_card(
-            "Starting price",
+            "Starting observed price",
             f"{_money(starting_actual)}/kg",
             format_week_date(weeks[0]),
-            "The observed retail price at the beginning of the selected time period.",
+            "The actual observed composite retail price (local & imported Regular-Milled average) at the start of the test period.",
         )
     with metric_columns[1]:
         metric_card(
-            "Ending price",
+            "Ending forecast",
             f"{_money(ending_forecast)}/kg",
             format_week_date(weeks[-1]),
-            "The model's forecasted retail price at the end of the time period.",
+            "The Stacked LSTM model's forecasted retail price for the final week of the test period.",
         )
     with metric_columns[2]:
         metric_card(
@@ -238,14 +240,14 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
             if np.isfinite(horizon_change)
             else "Not available",
             f"{change_text} from first to final week",
-            "The total expected increase or decrease in price from the start to the end.",
+            "The net difference between the starting observed price and the final week's forecasted price.",
         )
     with metric_columns[3]:
         metric_card(
-            "Average difference",
+            "Average deviation (MAE)",
             f"{_money(average_deviation)}/kg",
-            "Average distance from observed prices",
-            "How far off the predictions usually are from the actual recorded prices.",
+            "Mean absolute error across test weeks",
+            "Mean Absolute Error (MAE): the average absolute difference in PHP/kg between forecasted and observed prices.",
         )
 
     if show_graph:

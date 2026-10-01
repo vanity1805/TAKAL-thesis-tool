@@ -22,7 +22,10 @@ def render(shap_results: dict, weeks: list[str], active_model: str) -> None:
         'They explain the model’s calculations; they do not prove that an indicator caused a market-price change.</div>',
         unsafe_allow_html=True,
     )
-    importance_tab, beeswarm_tab = st.tabs(["Overall importance", "Week-by-week effects"])
+    importance_tab, beeswarm_tab = st.tabs([
+        "Global Importance (SHAP Summary Bar)",
+        "Directional Effects (SHAP Beeswarm)",
+    ])
 
     with importance_tab:
         st.write("A longer bar means that an indicator moved the model’s predictions more, on average, across the test period.")
@@ -89,7 +92,7 @@ def render(shap_results: dict, weeks: list[str], active_model: str) -> None:
         render_chart(st.empty(), beeswarm_figure, "shap_beeswarm")
 
     st.divider()
-    st.subheader("One forecast, explained step by step")
+    st.subheader("Local Feature Attribution — Single-Week SHAP Waterfall")
     selected_week = st.selectbox(
         "Forecast week",
         weeks,
@@ -169,7 +172,7 @@ def render(shap_results: dict, weeks: list[str], active_model: str) -> None:
     render_chart(st.empty(), local_figure, "shap_local_waterfall")
 
     st.divider()
-    st.subheader("How an indicator relates to its contribution")
+    st.subheader("SHAP Dependence Plot — Indicator Value vs. Price Contribution")
     selected_feature = st.selectbox("Indicator", feature_names, key="dependence_feature")
     dependence_data = shap_model["dependence"][selected_feature]
     x_points, y_points = dependence_points(tuple(dependence_data["x"]), tuple(dependence_data["y"]))

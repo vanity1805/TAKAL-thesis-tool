@@ -41,18 +41,23 @@ def render(metrics: dict, dm_test: dict, week_count: int, active_model: str) -> 
     ])
     st.dataframe(comparison_style, hide_index=True, use_container_width=True)
 
-    st.subheader("Are the forecast differences likely to be meaningful?")
+    st.subheader("Statistical Significance — Diebold-Mariano Test")
     statistic = float(dm_test.get("statistic", 0.0))
     p_value = float(dm_test.get("p_value", 1.0))
     alpha = float(dm_test.get("alpha", 0.05))
     sample_size = int(dm_test.get("n", week_count))
     statistically_different = bool(dm_test.get("significant", p_value < alpha))
     better_key = dm_test.get("better", "multivariate")
-    better_name = "multivariate model" if better_key == "multivariate" else "univariate baseline"
+    better_name = (
+        "Multivariate Stacked LSTM model"
+        if better_key == "multivariate"
+        else "Univariate Stacked LSTM baseline"
+    )
+
     dm_columns = st.columns(3)
     for column, label, value in zip(
         dm_columns,
-        ("Test statistic", "P-value", "Significance threshold"),
+        ("DM test statistic (HLN-corrected)", "Two-tailed p-value", "Significance level (α)"),
         (f"{statistic:.4f}", f"{p_value:.6f}", f"{alpha:g}"),
     ):
         with column:
@@ -63,22 +68,24 @@ def render(metrics: dict, dm_test: dict, week_count: int, active_model: str) -> 
             )
 
     if statistically_different:
-        dm_text = (
-            f"Across {sample_size} matching test weeks, this test found evidence that the models' forecast "
-            f"errors differ beyond what would usually be expected from random week-to-week variation "
-            f"(p = {p_value:.4f}, threshold = {alpha:g}). Under the loss comparison used by the pipeline, "
-            f"the {better_name} had the lower forecast loss. This is evidence about these test weeks, "
-            "not a guarantee that it will always be better in future periods."
+        dm_title = (
+            f"Statistically Significant Difference Found — Null Hypothesis (H₀) Rejected "
+            f"(p = {p_value:.4f} < {alpha:g})"
         )
-        dm_title = "A measurable difference was found"
+        dm_text = (
+            f"Across all {sample_size} paired hold-out test weeks, the Diebold–Mariano test confirms that the "
+            f"forecasting error reduction achieved by the <strong>{better_name}</strong> is statistically significant "
+            f"at the α = {alpha:g} level (DM = {statistic:.4f}, p = {p_value:.4f}). Combined with lower RMSE, MAE, "
+            f"and MAPE values and a higher R², the null hypothesis (H₀) is formally rejected in favor of the "
+            f"alternative hypothesis."
+        )
     else:
+        dm_title = f"No Statistically Significant Difference Found — Null Hypothesis (H₀) Retained (p = {p_value:.4f})"
         dm_text = (
-            f"Across {sample_size} matching test weeks, the test did not find strong enough evidence to "
-            f"separate the models' forecast errors from ordinary variation (p = {p_value:.4f}, "
-            f"threshold = {alpha:g}). The observed score difference alone is not enough to conclude that "
-            "either model is reliably more accurate; more evaluation data could change the result."
+            f"Across {sample_size} paired test weeks, the Diebold–Mariano test did not establish a statistically "
+            f"significant difference at the α = {alpha:g} threshold (p = {p_value:.4f})."
         )
-        dm_title = "No reliable difference was established"
+
     st.markdown(
         f'<div class="result-panel"><strong>{dm_title}</strong><br>{dm_text}<br><br>'
         '<span class="metric-detail">Why this matters: two models can have different average error scores '

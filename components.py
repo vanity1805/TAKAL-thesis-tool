@@ -15,13 +15,13 @@ from utils import BRAND_LOGO_PATH, COLORS
 def apply_styles() -> None:
     brand_logo_b64 = ""
     if os.path.exists(BRAND_LOGO_PATH):
-      with open(BRAND_LOGO_PATH, "rb") as brand_logo_file:
-        brand_logo_b64 = base64.b64encode(brand_logo_file.read()).decode("ascii")
+        with open(BRAND_LOGO_PATH, "rb") as brand_logo_file:
+            brand_logo_b64 = base64.b64encode(brand_logo_file.read()).decode("ascii")
 
     st.markdown(
         f"""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Work+Sans:wght@400;450;500;600&display=swap');
           :root {{
             --primary-color: {COLORS['multivariate']};
             --primary: {COLORS['multivariate']};
@@ -38,13 +38,15 @@ def apply_styles() -> None:
           }}
           html, body, [class*="css"], .stApp {{
             color: var(--takal-text);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            font-family: 'Work Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
           }}
           .stApp {{ background: var(--takal-paper); }}
           [data-testid="stAppViewContainer"] .main .block-container {{
             max-width: 1440px; padding-top: 2rem; padding-bottom: 3rem;
           }}
-         [data-testid="stSidebar"] {{
+          [data-testid="stSidebar"] {{
             background: var(--takal-white);
             border-right: 1px solid var(--takal-border);
           }}
@@ -74,7 +76,7 @@ def apply_styles() -> None:
           [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{
             flex: 1 1 auto !important;
             min-height: 0 !important;
-            padding-top: 0.25rem !important;
+            padding-top: 0.5rem !important;
             padding-bottom: 1.25rem !important;
             display: flex !important;
             flex-direction: column !important;
@@ -89,46 +91,53 @@ def apply_styles() -> None:
             flex-direction: column !important;
             min-height: 0 !important;
           }}
+          .st-key-home_reset {{
+            display: flex !important;
+            justify-content: center !important;
+            margin: 0.75rem 0 1.25rem 0 !important;
+          }}
           .st-key-home_reset button {{
-            min-height: 9rem; justify-content: center; background: transparent !important;
-            border: 1px solid transparent; color: var(--takal-text); box-shadow: none;
+            min-height: 10.5rem !important;
+            width: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: transparent !important;
+            border: 1px solid transparent !important;
+            color: var(--takal-text);
+            box-shadow: none !important;
             transition: none !important;
+            padding: 0 !important;
           }}
           .st-key-home_reset button:hover,
           .st-key-home_reset button:focus,
           .st-key-home_reset button:active {{
-            background: transparent !important; border-color: transparent !important;
-            color: var(--takal-text) !important; box-shadow: none !important; transform: none !important;
+            background: transparent !important;
+            border-color: transparent !important;
+            color: var(--takal-text) !important;
+            box-shadow: none !important;
+            transform: none !important;
           }}
           .st-key-home_reset button::before {{
-            content: ""; display: block; width: 100%; height: 8rem;
+            content: "";
+            display: block;
+            width: 86%;
+            height: 9.5rem;
+            margin: 0 auto;
             background: center / contain no-repeat url("data:image/png;base64,{brand_logo_b64}");
-            filter: brightness(1.08) contrast(1.05);
+            filter: brightness(1.05) contrast(1.03);
           }}
-          .st-key-home_reset button p {{ position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }}
-          [data-testid="stSidebar"] [data-testid="stFileUploader"] {{ margin-top: -.35rem; }}
-          [data-testid="stSidebar"] [data-testid="stFileUploader"] > section {{ gap: .35rem; }}
-          [data-testid="stSidebar"] [data-testid="stFileUploader"] label {{
-            color: var(--takal-text); font-size: .84rem; font-weight: 600; margin-bottom: .15rem;
+          .st-key-home_reset button p {{
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
           }}
-          [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {{
-            min-height: 0; padding: .75rem .8rem; border: 1px dashed var(--takal-border);
-            border-radius: 6px; background: var(--takal-paper);
-          }}
-          [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] > div {{ gap: .35rem; }}
-          [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] small {{
-            color: var(--takal-muted); font-size: .7rem; line-height: 1.25;
-          }}
-          [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button {{
-            min-height: 2rem; padding: .35rem .7rem; border: 1px solid var(--takal-blue);
-            border-radius: 5px; background: var(--takal-blue); color: var(--takal-white);
-            font-size: .78rem; font-weight: 600;
-          }}
-          [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button:hover {{
-            border-color: #0284c7; background: #0284c7; color: var(--takal-white);
-          }}
-          [data-testid="stSidebar"] [data-testid="stFileUploader"] + div {{ margin-top: .35rem; }}
-          [data-testid="stSidebar"] [data-testid="stFileUploader"] + div [data-testid="stToggle"] {{ margin-top: 0; }}
           [data-testid="stSidebar"] hr {{
             width: 100% !important;
             border: 0 !important;
@@ -148,8 +157,23 @@ def apply_styles() -> None:
             width: fit-content !important;
             margin: 0 auto !important;
           }}
-          h1, h2, h3 {{ color: var(--takal-text); letter-spacing: 0; }}
-          .page-heading {{ color: var(--takal-text) !important; font-size: 1.8rem; font-weight: 750; margin: .1rem 0 .2rem; }}
+          h1, h2, h3 {{
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            color: var(--takal-text);
+            letter-spacing: -0.025em;
+          }}
+          h1 {{ font-size: 2.25rem !important; font-weight: 800 !important; line-height: 1.2 !important; }}
+          h2 {{ font-size: 1.75rem !important; font-weight: 750 !important; line-height: 1.25 !important; }}
+          h3 {{ font-size: 1.35rem !important; font-weight: 700 !important; line-height: 1.3 !important; }}
+          .page-heading {{
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            color: var(--takal-text) !important;
+            font-size: 2.15rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.2;
+            margin: .1rem 0 .3rem;
+          }}
           [data-baseweb="tab-highlight"] {{ background-color: var(--takal-blue) !important; }}
           button[role="tab"][aria-selected="true"] {{ color: var(--takal-blue) !important; }}
           [data-testid="stToggle"] input:checked + div {{ background-color: var(--takal-blue) !important; border-color: var(--takal-blue) !important; }}
@@ -187,7 +211,7 @@ def apply_styles() -> None:
             background: var(--takal-white); border: 1px solid var(--takal-border); border-radius: 6px;
             padding: 1.1rem 1.2rem; min-height: 126px;
           }}
-          .metric-label {{ color: var(--takal-muted); font-size: .76rem; font-weight: 700; text-transform: uppercase; }}
+          .metric-label {{ color: var(--takal-muted); font-size: .76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }}
           .metric-label-row {{ display: flex; align-items: center; gap: .4rem; }}
           .metric-info {{
             position: relative; display: inline-flex; align-items: center; justify-content: center;
@@ -203,11 +227,11 @@ def apply_styles() -> None:
             opacity: 0; pointer-events: none; transform: translate(-50%, .2rem); transition: opacity .15s ease, transform .15s ease;
           }}
           .metric-info:hover::after, .metric-info:focus::after {{ opacity: 1; transform: translate(-50%, 0); }}
-          .metric-value {{ color: var(--takal-text); font-size: 1.7rem; line-height: 1.35; font-weight: 750; font-variant-numeric: tabular-nums; }}
-          .metric-detail {{ color: var(-div[data-baseweb="select"] > div,-takal-muted); font-size: .82rem; }}
-          [data-testid="stExpander"] {{ border: 1px solid var(--takal-border); border-radius: 6px; background: var(--takal-white); }}
-          [data-testid="stExpander"] summary {{ padding: .55rem .8rem; }}
-          [data-testid="stExpander"] .streamlit-expanderContent {{ padding: .2rem .8rem .7rem !important; }}
+          .metric-value {{
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            color: var(--takal-text); font-size: 1.7rem; line-height: 1.35; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+          }}
+          .metric-detail {{ color: var(--takal-muted); font-size: .82rem; }}
           [data-testid="stExpander"] {{ border: 1px solid var(--takal-border); border-radius: 6px; background: var(--takal-white); }}
           [data-testid="stExpander"] summary {{ padding: .55rem .8rem; }}
           [data-testid="stExpander"] .streamlit-expanderContent {{ padding: .2rem .8rem .7rem !important; }}
@@ -220,7 +244,8 @@ def apply_styles() -> None:
             width: fit-content !important;
             margin-left: auto !important;
           }}
-          .weekly-table-wrap {{ overflow-x: auto; border: 1px solid var(--takal-border); border-radius: 6px; background: var(--takal-white); margin-bottom: 1rem; }}          table.weekly-table {{ width: 100%; border-collapse: collapse; color: var(--takal-text); }}
+          .weekly-table-wrap {{ overflow-x: auto; border: 1px solid var(--takal-border); border-radius: 6px; background: var(--takal-white); margin-bottom: 1rem; }}
+          table.weekly-table {{ width: 100%; border-collapse: collapse; color: var(--takal-text); }}
           .weekly-table thead th {{ position: sticky; top: 0; z-index: 1; background: var(--takal-white); }}
           .weekly-table th, .weekly-table td {{ padding: .82rem 1rem; border-bottom: 1px solid var(--takal-border); font-size: .98rem; text-align: left; white-space: nowrap !important; }}
           .weekly-table th {{ color: var(--takal-muted); font-size: .8rem; font-weight: 700; }}
@@ -239,8 +264,11 @@ def apply_styles() -> None:
             background: var(--takal-white); border: 1px solid var(--takal-border); border-radius: 6px;
             padding: 1rem 1.1rem; height: 100%;
           }}
-          .technical-card-label {{ color: var(--takal-muted); font-size: .74rem; font-weight: 700; text-transform: uppercase; }}
-          .technical-card-value {{ color: var(--takal-text); font-size: 1.35rem; font-weight: 750; margin-top: .3rem; }}
+          .technical-card-label {{ color: var(--takal-muted); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }}
+          .technical-card-value {{
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            color: var(--takal-text); font-size: 1.35rem; font-weight: 800; margin-top: .3rem; letter-spacing: -0.02em;
+          }}
           .technical-card-detail {{ color: var(--takal-muted); font-size: .78rem; margin-top: .2rem; }}
           .result-panel {{ border-left: 4px solid var(--takal-blue); background: var(--takal-white); padding: 1rem 1.2rem; margin-top: 1rem; }}
           .chart-skeleton {{
@@ -303,41 +331,9 @@ def chart_layout(figure: go.Figure, height: int = 420) -> go.Figure:
         margin={"t": 20, "r": 24, "b": 24, "l": 12},
         paper_bgcolor=COLORS["white"],
         plot_bgcolor=COLORS["white"],
-        font={"family": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif", "color": COLORS["text"]},
+        font={"family": "Work Sans, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif", "color": COLORS["text"]},
         hoverlabel={"bgcolor": COLORS["white"], "font_color": COLORS["text"]},
     )
     figure.update_xaxes(gridcolor=COLORS["border"], zeroline=False)
     figure.update_yaxes(gridcolor=COLORS["border"], zeroline=False)
     return figure
-
-
-@st.dialog("Review your spreadsheet", width="large")
-def review_import_dialog() -> None:
-    pending = st.session_state.get("pending_import")
-    if not pending:
-        st.info("There is no spreadsheet waiting for review.")
-        return
-
-    st.write(f"Review and correct **{pending['filename']}** before importing it into this session.")
-    edited_data = st.data_editor(
-        pending["data"],
-        key=pending["editor_key"],
-        use_container_width=True,
-        num_rows="dynamic",
-        hide_index=True,
-    )
-    confirm_col, cancel_col = st.columns(2)
-    with confirm_col:
-        if st.button("Import reviewed data", type="primary", use_container_width=True):
-            st.session_state["imported_data"] = edited_data
-            st.session_state["imported_filename"] = pending["filename"]
-            st.session_state["pending_import"] = None
-            st.session_state["import_notice"] = (
-                f"Imported {len(edited_data):,} editable rows from {pending['filename']}. "
-                "These rows are stored in this session and do not replace the trained forecast results."
-            )
-            st.rerun()
-    with cancel_col:
-        if st.button("Cancel", use_container_width=True):
-            st.session_state["pending_import"] = None
-            st.rerun()
