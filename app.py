@@ -50,9 +50,9 @@ with st.sidebar:
     model_label = st.selectbox(
         "Forecast shown",
         ["Multivariate model", "Univariate baseline"],
-        key="active_model",
+        key="active_model_select",
     )
-    active_model = "multivariate" if model_label.startswith("Multivariate") else "univariate"
+    active_model = "multivariate" if "Multivariate" in model_label else "univariate"
 
     st.divider()
     st.toggle("View Technical Details", key="technical_details")

@@ -19,14 +19,28 @@ LOGO_PATH = os.path.join(APP_DIR, "Logo_New.png")
 BRAND_LOGO_PATH = os.path.join(APP_DIR, "New_Logo_FF.png")
 
 COLORS = {
-    "actual": "#10b981",
-    "multivariate": "#0ea5e9",
-    "univariate": "#64748b",
-    "white": "#ffffff",
-    "off_white": "#f8fafc",
-    "border": "#e2e8f0",
-    "text": "#0f172a",
-    "muted": "#64748b",
+    # Dashboard Surfaces & Text (Vizora Theme)
+    "white": "#FFFFFF",
+    "off_white": "#F4F6F5",
+    "bg": "#F4F6F5",
+    "border": "#E5EBE8",
+    "text": "#0F1F1C",
+    "muted": "#758A83",
+    # Sidebar
+    "sidebar_bg": "#0D2B24",
+    "sidebar_active": "#163E34",
+    "sidebar_border": "#1B473C",
+    "sidebar_text": "#CFDFDA",
+    # Core Data & Forecast Series
+    "actual": "#10B981",          # Emerald Green (Observed prices)
+    "multivariate": "#0EA5E9",    # Sky Blue (Multivariate model)
+    "univariate": "#64748B",      # Slate Grey (Univariate baseline)
+    # SHAP Colors (High contrast: Red/Magenta to Blue or original gradient)
+    "shap_low": "#0EA5E9",        # Low feature value: Blue
+    "shap_high": "#E11D48",       # High feature value: Vibrant Red/Rose
+    # Badges
+    "badge_bg": "#E9F8F3",
+    "badge_text": "#0B8561",
 }
 
 

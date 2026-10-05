@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from components import chart_layout, metric_card, render_chart
-from utils import COLORS, format_week_date
+from utils import format_week_date
 
 
 ROWS_PER_PAGE_OPTIONS = (10, 25, 50, 100)
@@ -61,7 +61,7 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
     latest_data_date = max(available_dates.values(), default=date(2026, 4, 30))
     today = date.today()
 
-    st.subheader("Weekly forecast vs actual")
+    st.markdown('<div class="section-subheading">Weekly forecast vs actual</div>', unsafe_allow_html=True)
     st.caption(
         f"Available dates: {format_week_date(earliest_data_date.isoformat())} to "
         f"{format_week_date(latest_data_date.isoformat())}."
@@ -158,17 +158,17 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
             else '<span class="weekly-not-yet">Not yet</span>'
         )
         date_content = html.escape(format_week_date(week))
-        row_class = ""
         table_rows.append(
-            f"<tr{row_class}><td><span class=\"weekly-table-date\">{date_content}</span></td>"
-            f'<td><span class="weekly-forecast">{_money(float(predicted))}</span></td>'
-            f"<td>{actual_markup}</td></tr>"
+            f"<tr><td class=\"col-center col-label\"><span class=\"weekly-table-date\">{date_content}</span></td>"
+            f'<td class="col-center"><span class="weekly-forecast">{_money(float(predicted))}</span></td>'
+            f'<td class="col-center">{actual_markup}</td></tr>'
         )
 
     st.markdown(
         '<div class="weekly-table-wrap"><table class="weekly-table">'
-        "<thead><tr><th scope=\"col\">Date</th><th scope=\"col\">Forecasted</th>"
-        "<th scope=\"col\">Actual</th></tr></thead><tbody>"
+        "<thead><tr><th scope=\"col\" class=\"col-center\">Date</th>"
+        "<th scope=\"col\" class=\"col-center\">Forecasted</th>"
+        "<th scope=\"col\" class=\"col-center\">Actual</th></tr></thead><tbody>"
         + "".join(table_rows)
         + "</tbody></table></div>",
         unsafe_allow_html=True,
@@ -224,7 +224,9 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
             "Starting observed price",
             f"{_money(starting_actual)}/kg",
             format_week_date(weeks[0]),
-            "The actual observed composite retail price (local & imported Regular-Milled average) at the start of the test period.",
+            "The actual observed composite retail price at the start of the test period.",
+            badge="Baseline",
+            always_dark=False,
         )
     with metric_columns[1]:
         metric_card(
@@ -232,8 +234,11 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
             f"{_money(ending_forecast)}/kg",
             format_week_date(weeks[-1]),
             "The Stacked LSTM model's forecasted retail price for the final week of the test period.",
+            badge="LSTM",
+            always_dark=False,
         )
     with metric_columns[2]:
+        badge_symbol = "+" if horizon_change >= 0 else "-"
         metric_card(
             "Change over period",
             f"{'+' if horizon_change >= 0 else '-'}₱{abs(horizon_change):.2f}/kg"
@@ -241,60 +246,96 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
             else "Not available",
             f"{change_text} from first to final week",
             "The net difference between the starting observed price and the final week's forecasted price.",
+            badge=f"{badge_symbol} ₱{abs(horizon_change):.2f}",
+            always_dark=False,  # WHITE by default, turns dark green ONLY on hover
         )
     with metric_columns[3]:
         metric_card(
             "Average deviation (MAE)",
             f"{_money(average_deviation)}/kg",
             "Mean absolute error across test weeks",
-            "Mean Absolute Error (MAE): the average absolute difference in PHP/kg between forecasted and observed prices.",
+            "Mean Absolute Error (MAE): average absolute difference between forecasted and observed prices.",
+            badge="Error",
+            always_dark=False,
         )
 
     if show_graph:
-        st.subheader("Forecast and observed prices")
-        st.caption("The green line shows observed prices. Blue and slate lines show the two forecasts.")
+        st.markdown('<div class="section-subheading">Forecast and observed prices</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="section-caption">Forest line shows observed prices. Mint and sage lines indicate model forecasts.</div>',
+            unsafe_allow_html=True,
+        )
+
         figure = go.Figure()
-        for series_key, series_name in (
-            ("multivariate", "Multivariate forecast"),
-            ("univariate", "Univariate baseline"),
-        ):
-            is_active = series_key == active_model
-            figure.add_trace(
-                go.Scatter(
-                    x=weeks,
-                    y=forecast[series_key],
-                    name=series_name,
-                    mode="lines+markers" if is_active else "lines",
-                    line={"color": COLORS[series_key], "width": 3 if is_active else 1.8},
-                    opacity=1 if is_active else 0.58,
-                    hovertemplate="%{y:.2f} ₱/kg<extra>" + series_name + "</extra>",
-                )
+
+        # 1. Univariate baseline trace (Sage dotted)
+        figure.add_trace(
+            go.Scatter(
+                x=weeks,
+                y=forecast["univariate"],
+                name="Univariate baseline",
+                mode="lines",
+                line={"color": "#6E998B", "width": 1.8, "dash": "dot"},
+                hovertemplate="%{y:.2f} ₱/kg<extra>Univariate baseline</extra>",
             )
+        )
+
+        # 2. Multivariate trace (Mint green with area gradient)
+        is_active = active_model == "multivariate"
+        figure.add_trace(
+            go.Scatter(
+                x=weeks,
+                y=forecast["multivariate"],
+                name="Multivariate forecast",
+                mode="lines+markers" if is_active else "lines",
+                marker={"size": 4.5, "color": "#1BB385"},
+                line={"color": "#1BB385", "width": 2.6},
+                fill="tozeroy",
+                fillcolor="rgba(37, 201, 152, 0.08)",
+                hovertemplate="%{y:.2f} ₱/kg<extra>Multivariate forecast</extra>",
+            )
+        )
+
+        # 3. Observed price trace (Dark forest green)
         figure.add_trace(
             go.Scatter(
                 x=weeks,
                 y=forecast["actual"],
                 name="Observed price",
                 mode="lines",
-                line={"color": COLORS["actual"], "width": 2.5, "dash": "dash"},
+                line={"color": "#0B2B22", "width": 2.4},
                 hovertemplate="%{y:.2f} ₱/kg<extra>Observed price</extra>",
             )
         )
+
         all_prices = np.concatenate(
             [actual_values, np.asarray(forecast["multivariate"]), np.asarray(forecast["univariate"])]
         )
-        y_padding = max(0.5, (float(all_prices.max()) - float(all_prices.min())) * 0.12)
-        chart_layout(figure, 460)
+        y_padding = max(0.5, (float(all_prices.max()) - float(all_prices.min())) * 0.15)
+
+        chart_layout(figure, 440)
         figure.update_layout(
             hovermode="x unified",
-            legend={"orientation": "h", "y": 1.08, "x": 0, "bgcolor": COLORS["white"]},
+            legend={
+                "orientation": "h",
+                "y": 1.14,
+                "x": 0.05,
+                "xanchor": "left",
+                "font": {"size": 12, "color": "#0B221B"},
+            },
         )
         figure.update_yaxes(
-            title_text="Retail price (PHP per kg)",
+            title_text="Retail price (PHP / kg)",
             tickprefix="₱",
             range=[float(all_prices.min()) - y_padding, float(all_prices.max()) + y_padding],
         )
-        figure.update_xaxes(title_text="Week", tickangle=-30)
+        figure.update_xaxes(
+            title_text="Week",
+            tickangle=-30,
+        )
+
+        st.markdown('<div class="chart-card-wrapper">', unsafe_allow_html=True)
         render_chart(st.empty(), figure, "overview_technical_forecast")
+        st.markdown('</div>', unsafe_allow_html=True)
     else:
         _render_week_table(weeks, forecast, active_model)

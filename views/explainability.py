@@ -7,7 +7,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from components import chart_layout, render_chart
+from components import chart_layout, render_chart, render_table
 from utils import COLORS, beeswarm_points, dependence_points, format_week_date
 
 
@@ -134,17 +134,12 @@ def render(shap_results: dict, weeks: list[str], active_model: str) -> None:
 
     st.markdown(
         f"The calculation starts at the model’s baseline of **₱{baseline:.2f}/kg**. It then adds each "
-        f"indicator’s contribution in the table below. A positive contribution raises the running estimate; "
+        f"indicator’s contribution below. A positive contribution raises the running estimate; "
         f"a negative contribution lowers it. {largest_summary}After all listed contributions, the model "
         f"forecast is **₱{predicted_price:.2f}/kg**."
     )
-    explanation_table = pd.DataFrame(explanation_rows).style.set_properties(
-        **{"text-align": "left"}
-    ).set_table_styles([
-        {"selector": "th", "props": [("text-align", "left")]},
-    ])
-    st.dataframe(explanation_table, hide_index=True, use_container_width=True)
 
+    # Graph rendered FIRST before the table
     local_figure = go.Figure(
         go.Waterfall(
             orientation="h",
@@ -170,6 +165,17 @@ def render(shap_results: dict, weeks: list[str], active_model: str) -> None:
     local_figure.update_xaxes(title_text="Running forecast estimate (PHP per kg)")
     chart_layout(local_figure, max(340, 50 * len(sorted_contributions)))
     render_chart(st.empty(), local_figure, "shap_local_waterfall")
+
+    # Table rendered BELOW the graph
+    render_table(
+        pd.DataFrame(explanation_rows),
+        formats={
+            "Contribution (PHP/kg)": "{:+.3f}".format,
+            "Estimate after this step (PHP/kg)": "{:.3f}".format,
+        },
+        label_columns=["Indicator"],
+        effect_column="Effect",
+    )
 
     st.divider()
     st.subheader("SHAP Dependence Plot — Indicator Value vs. Price Contribution")

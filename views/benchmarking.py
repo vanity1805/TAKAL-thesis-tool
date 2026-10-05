@@ -3,6 +3,8 @@
 import pandas as pd
 import streamlit as st
 
+from components import render_table
+
 
 def render(metrics: dict, dm_test: dict, week_count: int, active_model: str) -> None:
     st.markdown(
@@ -36,10 +38,11 @@ def render(metrics: dict, dm_test: dict, week_count: int, active_model: str) -> 
             {"Model": "Univariate baseline", **metrics["univariate"]},
         ]
     ).rename(columns={"rmse": "RMSE", "mae": "MAE", "mape": "MAPE (%)", "r2": "R²"})
-    comparison_style = comparison.style.set_properties(**{"text-align": "left"}).set_table_styles([
-        {"selector": "th", "props": [("text-align", "left")]},
-    ])
-    st.dataframe(comparison_style, hide_index=True, use_container_width=True)
+    render_table(
+        comparison,
+        formats={column: "{:.4f}".format for column in comparison.columns if column != "Model"},
+        label_columns=["Model"],
+    )
 
     st.subheader("Statistical Significance — Diebold-Mariano Test")
     statistic = float(dm_test.get("statistic", 0.0))
