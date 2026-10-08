@@ -36,8 +36,7 @@ MULTIVARIATE_FEATURES: list[tuple[str, str]] = [
     ("palay_production_mt", "Palay Production"),
 ]
 
-# Columns that require forward-fill imputation of trailing gaps (user-confirmed,
-# thesis-sanctioned). rice_import_mt has 9 missing weeks at the end of the series.
+# Columns that require forward-fill imputation of trailing gaps. rice_import_mt has 9 missing weeks at the end of the series.
 FORWARD_FILL_COLS = ["rice_import_mt", "usdphp_exchange_rate", "diesel_price_php_liter"]
 
 # --------------------------------------------------------------------------- #

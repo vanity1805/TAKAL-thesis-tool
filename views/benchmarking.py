@@ -22,11 +22,12 @@ def render(metrics: dict, dm_test: dict, week_count: int, active_model: str) -> 
     }
     for column, metric_key in zip(metric_columns, metric_descriptions):
         title, description = metric_descriptions[metric_key]
+        prefix = "₱" if metric_key in ("rmse", "mae") else ""
         suffix = "%" if metric_key == "mape" else ""
         with column:
             st.markdown(
                 f'<div class="technical-card"><div class="technical-card-label">{title}</div>'
-                f'<div class="technical-card-value">{current_metrics[metric_key]}{suffix}</div>'
+                f'<div class="technical-card-value">{prefix}{current_metrics[metric_key]}{suffix}</div>'
                 f'<div class="technical-card-detail">{description}</div></div>',
                 unsafe_allow_html=True,
             )
@@ -37,10 +38,15 @@ def render(metrics: dict, dm_test: dict, week_count: int, active_model: str) -> 
             {"Model": "Multivariate model", **metrics["multivariate"]},
             {"Model": "Univariate baseline", **metrics["univariate"]},
         ]
-    ).rename(columns={"rmse": "RMSE", "mae": "MAE", "mape": "MAPE (%)", "r2": "R²"})
+    ).rename(columns={"rmse": "RMSE", "mae": "MAE", "mape": "MAPE", "r2": "R²"})
     render_table(
         comparison,
-        formats={column: "{:.4f}".format for column in comparison.columns if column != "Model"},
+        formats={
+            "RMSE": "₱{:.4f}".format,
+            "MAE": "₱{:.4f}".format,
+            "MAPE": "{:.4f}%".format,
+            "R²": "{:.4f}".format,
+        },
         label_columns=["Model"],
     )
 
