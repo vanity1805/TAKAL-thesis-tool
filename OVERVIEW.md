@@ -101,8 +101,8 @@ streamlit run app.py
 ```
 
 `python -m model.run_all` trains both models, evaluates them, computes the SHAP
-explanations, and writes `artifacts/results.json`. It finishes in well under a
-minute on a normal laptop (CPU only).
+explanations, and writes `artifacts/results.json`. The current CPU run takes
+about 2–3 minutes.
 
 ---
 
@@ -113,7 +113,7 @@ layout. General readers can stop above.*
 
 ### Methodology (from the thesis, Chapter 3)
 - **Model — Stacked LSTM:** three sequential LSTM layers (64 → 32 → 16 units),
-  **Dropout 0.2** after the first two layers, a Dense(1) output, **Adam**
+  **Dropout 0.2** after the first two layers, a Dense(12) output, **Adam**
   optimizer, **MSE** loss, and **Early Stopping** on validation loss.
 - **Target:** `rice_price_php_kg average` (the mean of local and imported price).
 - **Multivariate features (6):** Diesel Fuel Price, USD/PHP Exchange Rate, Rice
@@ -121,21 +121,27 @@ layout. General readers can stop above.*
   recent values), and Palay Production. The univariate model uses the price only.
 - **Preprocessing:** **Min-Max normalization** fit on the **training set only**
   (no look-ahead), then a sliding **lookback window** turns the series into
-  supervised `(samples, timesteps, features)` tensors.
+  supervised `(samples, timesteps, features)` tensors that directly predict the
+  next 12 prices. Validation windows are separated from training windows by an
+  11-origin purge; all their targets remain before the first test row.
 - **Split:** **80/20 chronological** (no shuffling) — the last ~66 weeks are the
-  held-out test set.
+  held-out test targets. Each horizon uses the same 66 target dates, with the
+  corresponding earlier observed history as its input.
 - **Lookback window `L`:** *lightly tuned* over `{4, 8, 12, 16}`; the value with
   the lowest validation loss is chosen and used for **both** models (kept constant
   for a controlled comparison). The grid and choice are recorded in the results
   file (`meta.lookback_L`, `meta.lookback_grid_val_loss`).
-- **Metrics:** RMSE, MAE, MAPE, R² on the inverse-transformed (PHP/kg) test set.
-- **Significance test:** **Diebold-Mariano** compares the two models' forecast
-  errors to confirm the difference is statistically significant.
+- **Metrics:** RMSE, MAE, MAPE, R² for each horizon, plus an overall row pooling
+  the 12 × 66 errors, on the inverse-transformed (PHP/kg) test set.
+- **Significance test:** horizon-specific squared-error Diebold-Mariano tests
+  use h-step autocovariances and the HLN correction. The dashboard's H₀ result is
+  the overall test on each test week's mean loss differential across 12 horizons.
 - **Explainability — SHAP (`GradientExplainer`):** for the multivariate model,
   per-timestep attributions are aggregated across the lookback window into one
   value per feature ("**Vector SHAP**"); the univariate model keeps each lag
-  (Price(t-1) … Price(t-L)) as its own contributor. SHAP values are converted
-  from the model's normalized output to **PHP/kg** so the charts are readable.
+  (Price(t-1) … Price(t-L)) for local plots and also reports the aggregate price
+  attribution. A scalar-output wrapper is explained separately for each horizon.
+  SHAP values are converted from the model's normalized output to **PHP/kg**.
 
 ### Data handling
 - `rice_import_mt` has 9 missing trailing weeks (Mar–Apr 2026); these are
@@ -146,16 +152,17 @@ layout. General readers can stop above.*
   error.
 
 ### Results (current run)
-| Model | RMSE | MAE | MAPE | R² |
-|-------|-----:|----:|-----:|---:|
-| **Multivariate** | **0.64** | **0.51** | **1.27 %** | **0.86** |
-| Univariate (baseline) | 0.82 | 0.56 | 1.37 % | 0.76 |
+| Model | h=1 RMSE | MAE | MAPE | R² | Overall RMSE | MAE | MAPE | R² |
+|-------|---------:|----:|-----:|---:|-------------:|----:|-----:|---:|
+| Multivariate | 2.5663 | 2.1438 | 5.3774% | -1.3339 | 4.9997 | 4.2337 | 10.6771% | -7.8582 |
+| Univariate | 2.1215 | 1.7466 | 4.3624% | -0.5950 | 4.9831 | 4.0124 | 10.0855% | -7.7994 |
 
-- **Chosen lookback `L` = 4**; test horizon = 66 weeks (2025-01-27 → 2026-04-27).
-- **Diebold-Mariano:** statistic = −2.05, **p = 0.044 (< 0.05)** → the multivariate
-  model is **significantly more accurate** than the baseline.
-- **Top SHAP drivers (multivariate):** Retail Rice Price Lag, then USD/PHP
-  Exchange Rate and Rice Stockpile Inventory.
+- **Chosen lookback `L` = 12**; the common test period is 66 weeks
+  (2025-01-27 → 2026-04-27).
+- **Overall Diebold-Mariano:** statistic = 0.0610, **p = 0.951509 (> 0.05)** →
+  H₀ is retained. The h=1 RMSEs are not close to the former one-step results
+  (0.6373 multivariate, 0.8176 univariate); these are newly trained direct
+  multi-horizon models.
 
 *(Values come from `artifacts/results.json`; re-running the pipeline regenerates
 them.)*
