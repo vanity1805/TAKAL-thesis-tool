@@ -1,0 +1,13 @@
+# Academic documents — keep local, not in the public app repo
+*.pdf
+*.docx
+screenshots/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Streamlit secrets
+.streamlit/secrets.toml
