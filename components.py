@@ -67,59 +67,74 @@ def apply_styles() -> None:
             max-width: 1400px;
             padding: 2.2rem 2.8rem 3.5rem 2.8rem;
           }}
+          /* Top padding only: shrinks the gap above the title, leaves width and side padding alone */
+          [data-testid="stMainBlockContainer"] {{
+            padding-top: 4.00rem !important;
+          }}
+
+          /* The injected <style> block renders as an empty element that adds a flex gap */
+          [data-testid="stElementContainer"]:has(> [data-testid="stMarkdown"] style),
+          [data-testid="stElementContainer"]:has(style) {{
+            display: none !important;
+          }}
 
           /* --- SIDEBAR CONTAINER --- */
           [data-testid="stSidebar"] {{
             background-color: var(--takal-forest-dark) !important;
             border-right: none !important;
           }}
+          
+          [data-testid="stSidebar"] > div {{
+            background-color: var(--takal-forest-dark) !important;
+          }}
+
+          /* Sidebar width: extra room so the dropdown label is not truncated.
+             Scoped to the expanded state so Streamlit's collapse still reclaims the space. */
+          [data-testid="stSidebar"][aria-expanded="true"] {{
+            min-width: min(22rem, 86vw) !important;
+            max-width: min(22rem, 86vw) !important;
+          }}
+          [data-testid="stSidebar"][aria-expanded="false"] {{
+            min-width: 0 !important;
+            max-width: 0 !important;
+            width: 0 !important;
+            margin-left: 0 !important;
+            overflow: hidden !important;
+            border: none !important;
+          }}
 
           [data-testid="stSidebar"] * {{
             font-family: 'Plus Jakarta Sans', sans-serif !important;
           }}
 
-          [data-testid="stSidebar"],
-          [data-testid="stSidebar"] > div:first-child,
-          [data-testid="stSidebar"] [data-testid="stSidebarContent"],
-          [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{
-            overflow: hidden !important;
+          /* Hide scrollbars safely without breaking native scrolling */
+          [data-testid="stSidebarContent"]::-webkit-scrollbar {{
+            display: none !important;
+          }}
+          [data-testid="stSidebarContent"] {{
             scrollbar-width: none !important;
           }}
 
-          [data-testid="stSidebar"] *::-webkit-scrollbar {{
-            display: none !important;
-            width: 0 !important;
-            height: 0 !important;
+          /* Make Streamlit's top header transparent to remove the white gap */
+          [data-testid="stHeader"] {{
+            background: transparent !important;
           }}
 
-          [data-testid="stSidebar"] > div:first-child,
-          [data-testid="stSidebar"] [data-testid="stSidebarContent"] {{
-            height: 100dvh !important;
-            max-height: 100dvh !important;
-            min-height: 0 !important;
-            padding: 0 !important;
+          /* Safely push toggle to bottom using Flexbox on inner containers */
+          [data-testid="stSidebarContent"],
+          [data-testid="stSidebarUserContent"],
+          [data-testid="stSidebarUserContent"] > div,
+          [data-testid="stSidebarUserContent"] > div > div[data-testid="stVerticalBlock"] {{
             display: flex !important;
             flex-direction: column !important;
-            box-sizing: border-box !important;
+            flex-grow: 1 !important;
           }}
-
-          [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{
-            flex: 1 1 auto !important;
-            min-height: 0 !important;
-            padding: 0.4rem 1.4rem 1.8rem 1.4rem !important;
-            display: flex !important;
-            flex-direction: column !important;
-            box-sizing: border-box !important;
-          }}
-
-          [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] > div,
-          [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"],
-          [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] > div,
-          [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {{
-            flex: 1 1 auto !important;
-            display: flex !important;
-            flex-direction: column !important;
-            min-height: 0 !important;
+          
+          [data-testid="stSidebarUserContent"] {{
+            padding-top: 0.5rem !important;
+            padding-bottom: 1.25rem !important;
+            padding-left: 1.4rem !important;
+            padding-right: 1.4rem !important;
           }}
 
           [data-testid="stSidebar"] [data-testid="stSidebarHeader"] {{
@@ -136,50 +151,64 @@ def apply_styles() -> None:
 
           /* Sidebar Logo Button */
           .st-key-home_reset {{
+            --logo-gap-top: 1.75rem;
+            --logo-gap-bottom: 0.25rem;
             display: flex !important;
             justify-content: center !important;
-            margin: 0 0 1.4rem 0 !important;
+            margin: var(--logo-gap-top) 0 var(--logo-gap-bottom) 0 !important;
+          }}
+          .st-key-home_reset > div,
+          .st-key-home_reset [data-testid="stButton"] {{
+            width: 100% !important;
+            display: flex !important;
+            justify-content: center !important;
           }}
           .st-key-home_reset button {{
-            min-height: 9rem !important;
+            min-height: 10.5rem !important;
             width: 100% !important;
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
+            background: transparent !important;
+            border: 1px solid transparent !important;
+            box-shadow: none !important;
+            transition: none !important;
+            padding: 0 !important;
           }}
           .st-key-home_reset button:hover,
           .st-key-home_reset button:focus,
           .st-key-home_reset button:active {{
             background: transparent !important;
-            border: none !important;
+            border-color: transparent !important;
             box-shadow: none !important;
             transform: none !important;
           }}
           .st-key-home_reset button::before {{
             content: "";
             display: block;
-            width: 100%;
-            height: 9rem;
+            width: 86%;
+            height: 9.5rem;
             margin: 0 auto;
-            background: center center / contain no-repeat url("data:image/png;base64,{brand_logo_b64}");
-            transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
-          }}
-          .st-key-home_reset button:hover::before {{
-            transform: scale(1.03);
+            background: center / contain no-repeat url("data:image/png;base64,{brand_logo_b64}");
+            filter: brightness(1.05) contrast(1.03);
           }}
           .st-key-home_reset button p {{
-            display: none !important;
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
           }}
 
           /* --- SIDEBAR DROPDOWN SPECIFICATION --- */
           [data-testid="stSidebar"] [data-testid="stSelectbox"] label,
           [data-testid="stSidebar"] [data-testid="stSelectbox"] label p {{
             color: #7B9B8E !important;
-            font-size: 0.72rem !important;
+            font-size: 0.95rem !important;
             font-weight: 600 !important;
             letter-spacing: 0.1em !important;
             text-transform: uppercase !important;
@@ -357,6 +386,7 @@ def apply_styles() -> None:
             border-radius: 16px !important;
             padding: 6px !important;
             box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55) !important;
+            overflow: hidden !important;
           }}
           [data-testid="stSelectboxVirtualDropdown"] [role="listbox"] {{
             background: transparent !important;
@@ -380,11 +410,11 @@ def apply_styles() -> None:
             font-weight: 600 !important;
           }}
 
-          div[data-baseweb="popover"] {{
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) {{
             background: transparent !important;
           }}
-          div[data-baseweb="popover"] [role="listbox"],
-          div[data-baseweb="popover"] ul {{
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="listbox"],
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) ul {{
             background-color: #0D2E24 !important;
             background: #0D2E24 !important;
             border: 1px solid #1B473A !important;
@@ -392,8 +422,8 @@ def apply_styles() -> None:
             padding: 6px !important;
             box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55) !important;
           }}
-          div[data-baseweb="popover"] [role="option"],
-          div[data-baseweb="popover"] li {{
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="option"],
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) li {{
             background-color: transparent !important;
             color: #B4CDC3 !important;
             font-size: 0.92rem !important;
@@ -402,13 +432,61 @@ def apply_styles() -> None:
             padding: 10px 14px !important;
             cursor: pointer !important;
           }}
-          div[data-baseweb="popover"] [role="option"]:hover,
-          div[data-baseweb="popover"] [role="option"][aria-selected="true"],
-          div[data-baseweb="popover"] li:hover,
-          div[data-baseweb="popover"] li[aria-selected="true"] {{
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="option"]:hover,
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="option"][aria-selected="true"],
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) li:hover,
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) li[aria-selected="true"] {{
             background-color: #174537 !important;
             color: #FFFFFF !important;
             font-weight: 600 !important;
+          }}
+
+          /* Date picker popup: solid white surface */
+          div[data-baseweb="popover"]:has([data-baseweb="calendar"]),
+          div[data-baseweb="popover"]:has([data-baseweb="calendar"]) > div {{
+            background: #FFFFFF !important;
+            border-radius: 12px !important;
+            box-shadow: 0 12px 30px rgba(10, 35, 28, 0.14) !important;
+          }}
+
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])),
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) > div,
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) > div > div {{
+            background: transparent !important;
+            border-radius: 16px !important;
+            box-shadow: none !important;
+            border: none !important;
+          }}
+
+          /* Dropdown popover: clear every white wrapper behind the rounded dark list.
+          :where() keeps specificity at zero so the dark list rules above still win. */
+          :where(div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])):not(:has([data-baseweb="calendar"])) div) {{
+            background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+          }}
+
+          /* Select dropdown popup: clear every wrapper behind the rounded dark list */
+          div[data-baseweb="popover"]:has([data-testid="stSelectboxVirtualDropdown"]),
+          div[data-baseweb="popover"]:has([data-testid="stSelectboxVirtualDropdown"]) div:not([data-testid="stSelectboxVirtualDropdown"]):not([data-testid="stSelectboxVirtualDropdown"] *) {{
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 16px !important;
+          }}
+
+          div[data-baseweb="popover"]:has([data-baseweb="calendar"]),
+          div[data-baseweb="popover"]:has([data-baseweb="calendar"]) > div {{
+            background: #FFFFFF !important;
+            border-radius: 12px !important;
+            box-shadow: 0 12px 30px rgba(10, 35, 28, 0.14) !important;
+          }}
+
+          div[data-baseweb="calendar"] [role="gridcell"]:not([aria-selected="true"]):hover::after {{
+            background-color: #DDEFE8 !important;
+          }}
+          div[data-baseweb="calendar"] [role="gridcell"]:not([aria-selected="true"]):hover {{
+            color: var(--takal-text) !important;
           }}
 
           [data-testid="stSidebar"] hr {{
@@ -457,68 +535,89 @@ def apply_styles() -> None:
             margin: 0 !important;
           }}
 
-          [data-testid="stSidebar"] .st-key-technical_details label > div:not([data-testid="stWidgetLabel"]) {{
+          [data-testid="stSidebar"] .st-key-technical_details label > div:first-child {{
             flex: 0 0 auto !important;
             background-color: rgba(255, 255, 255, 0.16) !important;
             border-color: #7FA394 !important;
             box-shadow: inset 0 0 0 1.5px #7FA394 !important;
             transition: background-color 200ms ease, box-shadow 200ms ease !important;
           }}
-          [data-testid="stSidebar"] .st-key-technical_details label:hover > div:not([data-testid="stWidgetLabel"]) {{
+          [data-testid="stSidebar"] .st-key-technical_details label:hover > div:first-child {{
             background-color: rgba(255, 255, 255, 0.24) !important;
           }}
-          [data-testid="stSidebar"] .st-key-technical_details label > div:not([data-testid="stWidgetLabel"]) > div {{
+          [data-testid="stSidebar"] .st-key-technical_details label > div:first-child > div {{
             background-color: #E8F5EF !important;
           }}
-
-          [data-testid="stSidebar"] .st-key-technical_details label:has(input:checked) > div:not([data-testid="stWidgetLabel"]) {{
+          [data-testid="stSidebar"] .st-key-technical_details label:has(input:checked) > div:first-child {{
             background-color: var(--takal-mint) !important;
             border-color: var(--takal-mint) !important;
             box-shadow: none !important;
           }}
 
-          [data-testid="stToggle"] input:checked + div {{
-            background-color: var(--takal-mint) !important;
-            border-color: var(--takal-mint) !important;
+          /* Safety net: the label text never gets a background */
+          [data-testid="stSidebar"] .st-key-technical_details label > div:not(:first-child),
+          [data-testid="stSidebar"] .st-key-technical_details label > div:not(:first-child) * {{
+            background: transparent !important;
+            box-shadow: none !important;
           }}
 
-          /* --- PILL NAVIGATION TABS --- */
-          .stTabs {{
-            margin-bottom: 2rem;
+                  /* --- PILL TABS SITTING ON A THIN LINE (ARIA roles only) --- */
+          [data-baseweb="tab-highlight"],
+          [data-baseweb="tab-border"] {{
+            display: none !important;
           }}
-
-          .stTabs [data-baseweb="tab-list"] {{
-            background-color: #E6EBE8;
-            padding: 5px;
-            border-radius: 16px;
-            gap: 4px;
-            border-bottom: none !important;
-            width: fit-content;
-          }}
-
-          .stTabs [data-baseweb="tab-highlight"] {{
+          [role="tablist"]::before,
+          [role="tablist"]::after {{
+            content: none !important;
             display: none !important;
           }}
 
-          .stTabs [data-baseweb="tab"] {{
-            border-radius: 12px !important;
+          /* Pill container: rounded on top, square bottom corners, sitting on the line */
+          [role="tablist"] {{
+            background-color: #E6EBE8 !important;
+            padding: 5px 5px 0 5px !important; 
+            border-radius: 16px 16px 0 0 !important;
+            gap: 4px !important;
+            margin: 0 !important;
+            width: fit-content !important;
+            border-bottom: none !important;
+            box-shadow: none !important;
+          }}
+
+          /* The thin line is the top edge of the panel, directly under the container */
+          [role="tabpanel"] {{
+            margin-top: 0 !important;
+            padding-top: 1.5rem !important;
+            border-top: 1px solid #E3E9E5 !important;
+          }}
+          [role="tabpanel"] [role="tabpanel"] {{
+            padding-top: 1.1rem !important;
+          }}
+
+          button[role="tab"] {{
+            border-radius: 12px 12px 0 0 !important;   /* was: 12px */
             padding: 8px 20px !important;
+            height: auto !important;
             background: transparent !important;
             border: none !important;
+            outline: none !important;
             color: #556E65 !important;
-            font-size: 0.88rem !important;
+            font-size: 1.05rem !important;
             font-weight: 600 !important;
-            transition: all 0.2s ease !important;
           }}
-
-          .stTabs [data-baseweb="tab"]:hover {{
+          
+          button[role="tab"]:hover {{
             color: var(--takal-text) !important;
           }}
-
-          .stTabs [data-baseweb="tab"][aria-selected="true"] {{
+          button[role="tab"] p,
+          button[role="tab"] [data-testid="stMarkdownContainer"] p {{
+            font-size: 1.05rem !important;
+            font-weight: 600 !important;
+            margin: 0 !important;
+          }}
+          button[role="tab"][aria-selected="true"] {{
             background-color: #FFFFFF !important;
             color: var(--takal-text) !important;
-            font-weight: 600 !important;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
           }}
 
@@ -537,7 +636,7 @@ def apply_styles() -> None:
             color: var(--takal-muted);
             line-height: 1.55;
             margin-bottom: 2rem;
-            max-width: 1100px;
+            max-width: 100%;
           }}
 
           .page-intro strong {{
@@ -545,8 +644,32 @@ def apply_styles() -> None:
             font-weight: 600;
           }}
 
+          [data-testid="stMain"] hr {{
+            margin: 1.25rem 0 !important;
+          }}
+          [data-testid="stMain"] [data-testid="stElementContainer"]:has(hr) + [data-testid="stElementContainer"] h3 {{
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+          }}
+
+          /* st.subheader headings match the custom section headings */
+          [data-testid="stMain"] h3 {{
+            font-size: 1.9rem !important;
+            font-weight: 600 !important;
+            letter-spacing: -0.025em !important;
+            color: var(--takal-text) !important;
+            margin-top: 2rem !important;
+          }}
+
+          /* A heading that directly follows a divider (hr or markdown divider) needs no extra top margin */
+          [data-testid="stMain"] [data-testid="stElementContainer"]:has(hr) + [data-testid="stElementContainer"] .section-subheading,
+          [data-testid="stMain"] [data-testid="stElementContainer"]:has(hr) + [data-testid="stElementContainer"] h3 {{
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+          }}
+
           .section-subheading {{
-            font-size: 1.6rem;
+            font-size: 1.9rem;
             font-weight: 600;
             letter-spacing: -0.025em;
             color: var(--takal-text);
@@ -587,10 +710,10 @@ def apply_styles() -> None:
 
           .metric-label {{
             color: var(--takal-muted);
-            font-size: 0.72rem;
+            font-size: 0.8rem;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.07em;
+            letter-spacing: 0.05em;
             line-height: 1.3;
             transition: color 250ms ease;
           }}
@@ -632,7 +755,7 @@ def apply_styles() -> None:
             content: attr(data-tooltip);
             position: absolute;
             z-index: 60;
-            left: 50%;
+            right: 0;
             bottom: calc(100% + 0.6rem);
             width: 220px;
             padding: 0.65rem 0.85rem;
@@ -645,13 +768,13 @@ def apply_styles() -> None:
             box-shadow: 0 6px 20px rgba(0,0,0,0.2);
             opacity: 0;
             pointer-events: none;
-            transform: translate(-50%, 4px);
+            transform: translateY(4px);
             transition: opacity 150ms ease, transform 150ms ease;
           }}
 
           .metric-info:hover::after {{
             opacity: 1;
-            transform: translate(-50%, 0);
+            transform: translateY(0);
           }}
 
           .metric-value {{
@@ -673,6 +796,7 @@ def apply_styles() -> None:
 
           .metric-card:hover,
           .metric-card:focus-within {{
+            z-index: 30;
             background-color: var(--takal-forest-card) !important;
             border-color: var(--takal-forest-card) !important;
             transform: translateY(-3px);
@@ -717,7 +841,29 @@ def apply_styles() -> None:
             }}
           }}
 
-          /* --- MAIN-AREA FORM FIELDS --- */
+          /* --- MAIN-AREA STRICT DROPDOWNS --- */
+          [data-testid="stMain"] [data-testid="stWidgetLabel"] p {{
+            color: var(--takal-text) !important;
+            font-size: 1rem !important;
+            font-weight: 600 !important;
+          }}
+          
+          /* Force pointer cursor on the entire selectbox container to remove the I-beam */
+          [data-testid="stMain"] [data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"],
+          [data-testid="stMain"] [data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"] *,
+          [data-testid="stMain"] [data-testid="stSelectbox"] div[data-baseweb="select"],
+          [data-testid="stMain"] [data-testid="stSelectbox"] div[data-baseweb="select"] * {{
+            cursor: pointer !important;
+          }}
+
+          /* Disable text selection and typing caret on inputs */
+          [data-testid="stMain"] [data-testid="stSelectbox"] .react-aria-ComboBox input,
+          [data-testid="stMain"] [data-testid="stSelectbox"] div[data-baseweb="select"] input {{
+            caret-color: transparent !important;
+            user-select: none !important;
+            pointer-events: none !important;
+          }}
+
           [data-testid="stMain"] [data-testid="stDateInputField"],
           [data-testid="stMain"] [data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"],
           [data-testid="stMain"] [data-testid="stSelectbox"] div[data-baseweb="select"] > div:first-child,
@@ -769,10 +915,12 @@ def apply_styles() -> None:
             background: transparent !important;
           }}
 
-          [data-testid="stMain"] [data-testid="stWidgetLabel"] p {{
-            color: var(--takal-text) !important;
-            font-size: 0.84rem !important;
-            font-weight: 600 !important;
+          /* Date input: keep the border on the field only, not the nested wrappers */
+          [data-testid="stMain"] [data-testid="stDateInput"] [data-baseweb="input"],
+          [data-testid="stMain"] [data-testid="stDateInput"] [data-baseweb="base-input"] {{
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
           }}
 
           /* Expander header */
@@ -842,7 +990,7 @@ def apply_styles() -> None:
 
           div[data-testid="stMetric"] label {{
             color: var(--takal-muted) !important;
-            font-size: 0.74rem !important;
+            font-size: 0.85rem !important;
             font-weight: 600 !important;
             text-transform: uppercase !important;
             letter-spacing: 0.06em !important;
@@ -856,10 +1004,14 @@ def apply_styles() -> None:
 
           .technical-card-label {{
             color: var(--takal-muted);
-            font-size: 0.74rem;
+            font-size: 0.85rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.06em;
+          }}
+          /* Greek letters must stay lowercase: uppercase turns α into a Latin-looking "A" */
+          .technical-card-label .no-upper {{
+            text-transform: none;
           }}
           .technical-card-value {{
             font-size: 1.65rem;
@@ -910,7 +1062,7 @@ def apply_styles() -> None:
           }}
 
           .result-panel {{
-            border-left: 4px solid var(--takal-mint) !important;
+            border-left: 4px solid var(--takal-forest-pill) !important;
             background: var(--takal-white) !important;
             border: 1px solid var(--takal-border);
             border-radius: 16px;
@@ -928,7 +1080,7 @@ def apply_styles() -> None:
             overflow: hidden !important;
           }}
 
-          .chart-card-wrapper {{
+          .st-key-chart_card_forecast {{
             background: var(--takal-white);
             border: 1px solid var(--takal-border);
             border-radius: 20px;
@@ -955,7 +1107,7 @@ def apply_styles() -> None:
           table.weekly-table th {{
             background: #0D2E24;
             color: #FFFFFF;
-            font-size: 0.74rem;
+            font-size: 0.85rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.06em;
@@ -991,7 +1143,8 @@ def apply_styles() -> None:
             color: #0A231C;
           }}
           table.weekly-table td.effect-up {{ color: #0B8561 !important; font-weight: 600; }}
-          table.weekly-table td.effect-down {{ color: #B4233F !important; font-weight: 600; }}
+          table.weekly-table td.effect-down {{ color: #0EA5E9 !important; font-weight: 600; }}
+          
           .weekly-forecast {{
             color: #0A231C;
             font-weight: 600;
@@ -1005,12 +1158,227 @@ def apply_styles() -> None:
             font-style: italic;
           }}
 
-          [data-testid="stExpander"] {{
-            border: 1px solid var(--takal-border);
-            border-radius: 14px;
-            background: var(--takal-white);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+          /* --- SIDEBAR HIDE / SHOW BUTTON: visible on the dark sidebar --- */
+          [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"],
+          [data-testid="stSidebar"] [data-testid="stSidebarHeader"] {{
+            opacity: 1 !important;
+            visibility: visible !important;
           }}
+          [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] button,
+          [data-testid="stSidebar"] [data-testid="stSidebarHeader"] button {{
+            color: #CFE3DA !important;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 10px !important;
+            opacity: 1 !important;
+            transition: background-color 0.2s ease !important;
+          }}
+          [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] button:hover,
+          [data-testid="stSidebar"] [data-testid="stSidebarHeader"] button:hover {{
+            background: rgba(255, 255, 255, 0.20) !important;
+          }}
+          [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] *,
+          [data-testid="stSidebar"] [data-testid="stSidebarHeader"] button * {{
+            color: #CFE3DA !important;
+            fill: #CFE3DA !important;
+          }}
+          /* Re-open button shown in the main header while the sidebar is collapsed */
+          [data-testid="stExpandSidebarButton"],
+          [data-testid="stExpandSidebarButton"] *,
+          [data-testid="collapsedControl"],
+          [data-testid="collapsedControl"] * {{
+            color: var(--takal-text) !important;
+            opacity: 1 !important;
+          }}
+
+          /* --- EQUAL-SIZE CARDS: every card in a row stretches to the tallest one --- */
+          :is([data-testid="stHorizontalBlock"]:has(.metric-card),
+              [data-testid="stHorizontalBlock"]:has(.technical-card)) {{
+            align-items: stretch !important;
+          }}
+          :is([data-testid="stHorizontalBlock"]:has(.metric-card),
+              [data-testid="stHorizontalBlock"]:has(.technical-card)) > :is([data-testid="stColumn"], [data-testid="column"]) {{
+            display: flex !important;
+            flex-direction: column !important;
+          }}
+          :is([data-testid="stHorizontalBlock"]:has(.metric-card),
+              [data-testid="stHorizontalBlock"]:has(.technical-card)) > :is([data-testid="stColumn"], [data-testid="column"]) > [data-testid="stVerticalBlock"] {{
+            flex: 1 1 auto !important;
+          }}
+          /* Pass the stretch down through Streamlit's wrapper elements to the card itself */
+          :is([data-testid="stHorizontalBlock"]:has(.metric-card),
+              [data-testid="stHorizontalBlock"]:has(.technical-card)) [data-testid="stElementContainer"],
+          :is([data-testid="stHorizontalBlock"]:has(.metric-card),
+              [data-testid="stHorizontalBlock"]:has(.technical-card)) [data-testid="stMarkdown"],
+          :is([data-testid="stHorizontalBlock"]:has(.metric-card),
+              [data-testid="stHorizontalBlock"]:has(.technical-card)) [data-testid="stMarkdownContainer"] {{
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 1 auto !important;
+          }}
+          .metric-card,
+          .technical-card {{
+            flex: 1 1 auto;
+          }}
+          /* Overview cards: reserve two label lines so values and details line up across cards */
+          .metric-card {{
+            justify-content: flex-start;
+          }}
+          .metric-card-header {{
+            min-height: 3.4rem;
+          }}
+          .metric-card .metric-detail {{
+            margin-top: auto;
+          }}
+          @media (max-width: 640px) {{
+            .metric-card-header {{
+              min-height: 0;
+            }}
+          }}
+
+          /* Badge such as "+ ₱1.48" stays on one line; the label wraps instead */
+          .metric-badge {{
+            white-space: nowrap;
+          }}
+          .metric-header-right {{
+            flex-shrink: 0;
+          }}
+          .metric-label {{
+            min-width: 0;
+          }}
+
+          /* ================= RESPONSIVE LAYOUT ================= */
+
+          /* Fluid headings: scale smoothly between phone and desktop */
+          .page-heading {{
+            font-size: clamp(1.7rem, 0.9rem + 3vw, 2.35rem) !important;
+          }}
+          .section-subheading,
+          [data-testid="stMain"] h3 {{
+            font-size: clamp(1.3rem, 0.8rem + 2vw, 1.9rem) !important;
+          }}
+          .metric-value {{
+            font-size: clamp(1.5rem, 1rem + 1.4vw, 2.1rem);
+          }}
+          .technical-card-value {{
+            font-size: clamp(1.3rem, 0.9rem + 1.2vw, 1.65rem);
+            overflow-wrap: anywhere;
+          }}
+
+          /* Tab pills scroll sideways instead of overflowing the page */
+          @media (max-width: 900px) {{
+            [role="tablist"] {{
+              max-width: 100% !important;
+              overflow-x: auto !important;
+              overflow-y: hidden !important;
+              scrollbar-width: none;
+            }}
+            [role="tablist"]::-webkit-scrollbar {{
+              display: none;
+            }}
+          }}
+          button[role="tab"] {{
+            flex-shrink: 0 !important;
+            white-space: nowrap !important;
+          }}
+
+          .metric-info::after {{
+            width: min(220px, 70vw);
+          }}
+
+          /* Tablet and below: 4-up / 3-up card rows wrap into 2 per row */
+          @media (max-width: 1100px) {{
+            [data-testid="stHorizontalBlock"]:has(.metric-card),
+            [data-testid="stHorizontalBlock"]:has(.technical-card) {{
+              flex-wrap: wrap !important;
+              row-gap: 1rem !important;
+            }}
+            [data-testid="stHorizontalBlock"]:has(.metric-card) > [data-testid="stColumn"],
+            [data-testid="stHorizontalBlock"]:has(.metric-card) > [data-testid="column"],
+            [data-testid="stHorizontalBlock"]:has(.technical-card) > [data-testid="stColumn"],
+            [data-testid="stHorizontalBlock"]:has(.technical-card) > [data-testid="column"] {{
+              flex: 1 1 calc(50% - 1rem) !important;
+              min-width: calc(50% - 1rem) !important;
+            }}
+          }}
+
+          @media (max-width: 900px) {{
+            [data-testid="stMainBlockContainer"],
+            [data-testid="stAppViewContainer"] .main .block-container {{
+              padding: 2.75rem 1.4rem 2.5rem 1.4rem !important;
+            }}
+            .page-intro {{
+              margin-bottom: 1.4rem;
+            }}
+            .result-panel {{
+              padding: 1.1rem 1.2rem;
+            }}
+          }}
+
+          /* Phones */
+          @media (max-width: 640px) {{
+            [data-testid="stMainBlockContainer"],
+            [data-testid="stAppViewContainer"] .main .block-container {{
+              padding: 2.5rem 0.85rem 2rem 0.85rem !important;
+            }}
+            [data-testid="stHorizontalBlock"]:has(.metric-card) > [data-testid="stColumn"],
+            [data-testid="stHorizontalBlock"]:has(.metric-card) > [data-testid="column"],
+            [data-testid="stHorizontalBlock"]:has(.technical-card) > [data-testid="stColumn"],
+            [data-testid="stHorizontalBlock"]:has(.technical-card) > [data-testid="column"] {{
+              flex: 1 1 100% !important;
+              min-width: 100% !important;
+            }}
+            .metric-card {{
+              min-height: 0;
+              padding: 1.1rem 1.2rem;
+            }}
+            .technical-card,
+            div[data-testid="stMetric"] {{
+              min-height: 0;
+              padding: 1rem 1.15rem !important;
+            }}
+            /* Tighter tab-rule spacing on phones */
+            [data-baseweb="tabs"] {{
+              --tab-rule-gap-above: 0.65rem;
+              --tab-rule-gap-below: 1.1rem;
+            }}
+            [role="tablist"] {{
+              padding: 4px !important;
+            }}
+            button[role="tab"] {{
+              padding: 7px 14px !important;
+            }}
+            button[role="tab"] p,
+            button[role="tab"] [data-testid="stMarkdownContainer"] p {{
+              font-size: 0.92rem !important;
+            }}
+            .st-key-chart_card_forecast {{
+              padding: 0.9rem 0.5rem 0.6rem 0.5rem;
+              border-radius: 16px;
+            }}
+            table.weekly-table th {{
+              padding: 0.75rem 0.8rem;
+              font-size: 0.74rem;
+            }}
+            table.weekly-table td {{
+              padding: 0.7rem 0.8rem;
+              font-size: 0.84rem;
+            }}
+            /* Smaller chart text so plots keep room on narrow screens */
+            .js-plotly-plot .xtick text,
+            .js-plotly-plot .ytick text,
+            .js-plotly-plot .legend text {{
+              font-size: 11px !important;
+            }}
+            .js-plotly-plot .g-xtitle text,
+            .js-plotly-plot .g-ytitle text {{
+              font-size: 12px !important;
+            }}
+            .js-plotly-plot .modebar-container {{
+              display: none !important;
+            }}
+          }}
+
         </style>
         """,
         unsafe_allow_html=True,
@@ -1132,8 +1500,8 @@ def chart_layout(figure: go.Figure, height: int = 440) -> go.Figure:
         plot_bgcolor="#FFFFFF",
         font={
             "family": "Plus Jakarta Sans, sans-serif",
-            "color": "#6C827A",
-            "size": 12,
+            "color": "#2F4A41",
+            "size": 14,
         },
         hoverlabel={
             "bgcolor": "#0A231C",
@@ -1142,16 +1510,14 @@ def chart_layout(figure: go.Figure, height: int = 440) -> go.Figure:
             "font_size": 12,
         },
     )
-    figure.update_xaxes(
-        gridcolor="#EDF2EE",
-        zeroline=False,
-        linecolor="#E3E9E5",
-        tickfont={"size": 11, "color": "#758A83"},
-    )
-    figure.update_yaxes(
-        gridcolor="#EDF2EE",
-        zeroline=False,
-        linecolor="#E3E9E5",
-        tickfont={"size": 11, "color": "#758A83"},
-    )
+    axis_style = {
+        "gridcolor": "#EDF2EE",
+        "zeroline": False,
+        "linecolor": "#E3E9E5",
+        "tickfont": {"size": 13, "color": "#2F4A41"},
+        "title_font": {"size": 14, "color": "#2F4A41"},
+        "automargin": True,
+    }
+    figure.update_xaxes(**axis_style)
+    figure.update_yaxes(**axis_style)
     return figure

@@ -31,18 +31,27 @@ except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error
     st.error(f"The saved forecast results could not be read: {error}")
     st.stop()
 
+# --- Restore state from URL Query Params to survive browser reloads ---
+if "technical_details" not in st.session_state:
+    st.session_state["technical_details"] = st.query_params.get("tech", "false").lower() == "true"
+
+if "active_model_select" not in st.session_state:
+    url_model = st.query_params.get("model", "multivariate").lower()
+    if "univariate" in url_model:
+        st.session_state["active_model_select"] = "Univariate baseline"
+    else:
+        st.session_state["active_model_select"] = "Multivariate model"
+
 st.session_state.setdefault("technical_details", False)
 st.session_state.setdefault("technical_tabs_version", 0)
 
 
 def reset_to_overview() -> None:
-    if not st.session_state.get("technical_details", False):
-        st.toast("You are already on the Overview section.")
-        return
-    st.session_state["overview_page"] = 0
-    st.session_state["technical_tab_default"] = "Forecast & Overview"
-    st.session_state["technical_tabs_version"] += 1
-
+    if st.session_state.get("technical_details", False):
+        st.session_state["overview_page"] = 0
+        st.session_state["technical_tab_default"] = "Forecast & Overview"
+        st.session_state["technical_tabs_version"] += 1
+    st.toast("You are already viewing the Overview section.")
 
 with st.sidebar:
     st.button("TAKAL", key="home_reset", on_click=reset_to_overview, use_container_width=True)
@@ -56,6 +65,10 @@ with st.sidebar:
 
     st.divider()
     st.toggle("View Technical Details", key="technical_details")
+
+# --- Sync the URL with the current session state ---
+st.query_params["tech"] = str(st.session_state["technical_details"]).lower()
+st.query_params["model"] = "univariate" if active_model == "univariate" else "multivariate"
 
 weeks = RESULTS["weeks"]
 if not st.session_state["technical_details"]:

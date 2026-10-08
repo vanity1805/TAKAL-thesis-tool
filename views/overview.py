@@ -316,13 +316,16 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
         chart_layout(figure, 440)
         figure.update_layout(
             hovermode="x unified",
+            # Anchored to the bottom edge so a wrapped legend grows upward into the top margin
             legend={
                 "orientation": "h",
-                "y": 1.14,
-                "x": 0.05,
+                "y": 1.02,
+                "yanchor": "bottom",
+                "x": 0,
                 "xanchor": "left",
                 "font": {"size": 12, "color": "#0B221B"},
             },
+            margin={"t": 80, "r": 15, "b": 30, "l": 10},
         )
         figure.update_yaxes(
             title_text="Retail price (PHP / kg)",
@@ -334,8 +337,7 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
             tickangle=-30,
         )
 
-        st.markdown('<div class="chart-card-wrapper">', unsafe_allow_html=True)
-        render_chart(st.empty(), figure, "overview_technical_forecast")
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(key="chart_card_forecast"):
+            render_chart(st.empty(), figure, "overview_technical_forecast")
     else:
         _render_week_table(weeks, forecast, active_model)
