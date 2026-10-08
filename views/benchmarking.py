@@ -61,7 +61,7 @@ def render(metrics: dict, dm_test: dict, week_count: int, active_model: str) -> 
     for column, label, value in zip(
         dm_columns,
         (
-            "DM test statistic (HLN-corrected)",
+            "DM test statistic",
             "Two-tailed p-value",
             'Significance level (<span class="no-upper">α</span>)',
         ),

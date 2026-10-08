@@ -210,6 +210,18 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
         else float("nan")
     )
     change_text = "Rise" if horizon_change >= 0 else "Fall"
+    # The card value already shows the peso change, so the badge shows the same
+    # change relative to the starting price instead of repeating it.
+    change_pct = (
+        horizon_change / starting_actual * 100
+        if np.isfinite(horizon_change) and np.isfinite(starting_actual) and starting_actual != 0
+        else float("nan")
+    )
+    change_badge = (
+        f"{'+' if change_pct >= 0 else '-'}{abs(change_pct):.1f}%"
+        if np.isfinite(change_pct)
+        else None
+    )
 
     st.markdown(
         f'<div class="page-intro">Weekly <strong>Regular-Milled</strong> retail rice price forecasts in the '
@@ -238,15 +250,14 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
             always_dark=False,
         )
     with metric_columns[2]:
-        badge_symbol = "+" if horizon_change >= 0 else "-"
         metric_card(
             "Change over period",
             f"{'+' if horizon_change >= 0 else '-'}₱{abs(horizon_change):.2f}/kg"
             if np.isfinite(horizon_change)
             else "Not available",
             f"{change_text} from first to final week",
-            "The net difference between the starting observed price and the final week's forecasted price.",
-            badge=f"{badge_symbol} ₱{abs(horizon_change):.2f}",
+            "The net difference between the starting observed price and the final week's forecasted price. The badge shows the same change as a percentage of the starting price.",
+            badge=change_badge,
             always_dark=False,  # WHITE by default, turns dark green ONLY on hover
         )
     with metric_columns[3]:
