@@ -23,52 +23,20 @@ def _reset_week_page() -> None:
     st.session_state["overview_page"] = 0
 
 
-def _set_select_value(
-    key: str,
-    value: str | int,
-    popover_key: str,
-    on_change: Callable[[], None] | None,
-) -> None:
-    st.session_state[key] = value
-    st.session_state[popover_key] = False
-    if on_change is not None:
-        on_change()
-
-
-def _render_select_popover(
+def _render_select(
     label: str,
     options: Sequence[str | int],
     key: str,
     default: str | int,
     on_change: Callable[[], None] | None = None,
 ) -> str | int:
-    st.session_state.setdefault(key, default)
-    current_value = st.session_state[key]
-    popover_key = f"{key}_popover"
-    st.session_state.setdefault(popover_key, False)
+    """Render a real select box.
 
-    st.markdown(
-        f'<div class="takal-select-label">{html.escape(label)}</div>',
-        unsafe_allow_html=True,
-    )
-    with st.popover(
-        str(current_value),
-        key=popover_key,
-        on_change="rerun",
-        use_container_width=True,
-    ):
-        option_columns = st.columns(min(4, len(options)))
-        for index, option in enumerate(options):
-            with option_columns[index % len(option_columns)]:
-                st.button(
-                    str(option),
-                    key=f"{key}_option_{index}",
-                    use_container_width=True,
-                    type="tertiary",
-                    on_click=_set_select_value,
-                    args=(key, option, popover_key, on_change),
-                )
-    return st.session_state[key]
+    A select box (not a popover of buttons) gives the open list, its position under
+    the field, and its closing behaviour the same look as the SHAP dropdowns.
+    """
+    st.session_state.setdefault(key, default)
+    return st.selectbox(label, options, key=key, on_change=on_change)
 
 
 def _from_date_changed() -> None:
@@ -154,7 +122,7 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
 
         order_col, page_size_col = st.columns(2)
         with order_col:
-            date_order = _render_select_popover(
+            date_order = _render_select(
                 "Date order",
                 DATE_ORDER_OPTIONS,
                 "overview_date_order",
@@ -162,7 +130,7 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
                 on_change=_reset_week_page,
             )
         with page_size_col:
-            rows_per_page = _render_select_popover(
+            rows_per_page = _render_select(
                 "Rows per page",
                 ROWS_PER_PAGE_OPTIONS,
                 "overview_rows_per_page",
@@ -245,7 +213,7 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
 
 
 def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool = False) -> None:
-    horizon = _render_select_popover(
+    horizon = _render_select(
         "Forecast Horizon (Weeks Ahead)",
         tuple(range(1, 13)),
         "overview_horizon",

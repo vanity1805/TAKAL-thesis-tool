@@ -661,10 +661,12 @@ def apply_styles() -> None:
             margin-top: 2rem !important;
           }}
 
-          /* A heading that directly follows a divider (hr or markdown divider) needs no extra top margin */
-          [data-testid="stMain"] [data-testid="stElementContainer"]:has(hr) + [data-testid="stElementContainer"] .section-subheading,
-          [data-testid="stMain"] [data-testid="stElementContainer"]:has(hr) + [data-testid="stElementContainer"] h3 {{
-            margin-top: 0 !important;
+          [data-testid="stMain"] [data-testid="stElementContainer"]:has(.page-intro):has(+ [data-testid="stElementContainer"] h3) .page-intro {{
+            margin-bottom: 0 !important;
+          }}
+          [data-testid="stMain"] [data-testid="stElementContainer"]:has(.page-intro) + [data-testid="stElementContainer"] h3,
+          [data-testid="stMain"] [data-testid="stElementContainer"]:has(.page-intro) + [data-testid="stElementContainer"] [data-testid="stHeading"] {{
+            margin-top: 1.5rem !important;
             padding-top: 0 !important;
           }}
 
@@ -871,9 +873,8 @@ def apply_styles() -> None:
             margin-bottom: 0.25rem !important;
           }}
 
-          [data-testid="stMain"] .st-key-overview_horizon_popover button[data-testid="stPopoverButton"],
-          [data-testid="stMain"] .st-key-overview_date_order_popover button[data-testid="stPopoverButton"],
-          [data-testid="stMain"] .st-key-overview_rows_per_page_popover button[data-testid="stPopoverButton"] {{
+          /* --- MAIN-AREA STRICT DROPDOWNS --- */
+          [data-testid="stMain"] button[data-testid="stPopoverButton"] {{
             min-height: 40px !important;
             border: 1px solid #D5E0DA !important;
             border-radius: 12px !important;
@@ -881,48 +882,105 @@ def apply_styles() -> None:
             color: var(--takal-text) !important;
             box-shadow: none !important;
             cursor: pointer !important;
+            padding-left: 14px !important;
           }}
 
-          [data-testid="stMain"] .st-key-overview_horizon_popover button[data-testid="stPopoverButton"]:hover,
-          [data-testid="stMain"] .st-key-overview_date_order_popover button[data-testid="stPopoverButton"]:hover,
-          [data-testid="stMain"] .st-key-overview_rows_per_page_popover button[data-testid="stPopoverButton"]:hover {{
+          [data-testid="stMain"] button[data-testid="stPopoverButton"]:hover {{
             border-color: #A9C3B8 !important;
             background: #FBFDFC !important;
           }}
 
-          [data-testid="stMain"] .st-key-overview_horizon_popover button[data-testid="stPopoverButton"]:focus,
-          [data-testid="stMain"] .st-key-overview_date_order_popover button[data-testid="stPopoverButton"]:focus,
-          [data-testid="stMain"] .st-key-overview_rows_per_page_popover button[data-testid="stPopoverButton"]:focus {{
+          [data-testid="stMain"] button[data-testid="stPopoverButton"]:focus {{
             border-color: var(--takal-mint) !important;
             box-shadow: 0 0 0 3px rgba(37, 201, 152, 0.16) !important;
           }}
 
+          [data-testid="stMain"] button[data-testid="stPopoverButton"] > div:first-child {{
+            width: 100% !important;
+            display: flex !important;
+            justify-content: flex-start !important;
+          }}
+
+          [data-testid="stMain"] button[data-testid="stPopoverButton"] svg {{
+            fill: var(--takal-muted) !important;
+            margin-left: auto !important;
+          }}
+
+          /* Target the INNER div to make it full width and align its contents left */
+          [data-testid="stMain"] .st-key-overview_horizon_popover button[data-testid="stPopoverButton"] > div,
+          [data-testid="stMain"] .st-key-overview_date_order_popover button[data-testid="stPopoverButton"] > div,
+          [data-testid="stMain"] .st-key-overview_rows_per_page_popover button[data-testid="stPopoverButton"] > div {{
+            width: 100% !important;
+            display: flex !important;
+            justify-content: flex-start !important;
+            padding-left: 0.5rem !important;
+          }}
+
+          /* Push the SVG arrow to the far right edge of that inner div */
           [data-testid="stMain"] .st-key-overview_horizon_popover button[data-testid="stPopoverButton"] svg,
           [data-testid="stMain"] .st-key-overview_date_order_popover button[data-testid="stPopoverButton"] svg,
           [data-testid="stMain"] .st-key-overview_rows_per_page_popover button[data-testid="stPopoverButton"] svg {{
             fill: var(--takal-muted) !important;
+            margin-left: auto !important;
           }}
 
-          [data-testid="stMain"] [data-testid="stPopoverBody"] {{
+/* --- POPOVER DROPDOWN MENU: same look as the select dropdowns --- */
+          /* Clear any wrapper Streamlit paints around the popover body */
+          div[data-baseweb="popover"]:has([data-testid="stPopoverBody"]),
+          div[data-baseweb="popover"]:has([data-testid="stPopoverBody"]) > div {{
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 16px !important;
+          }}
+          div[data-testid="stPopoverBody"] {{
             background: #0D2E24 !important;
             border: 1px solid #1B473A !important;
-            border-radius: 12px !important;
+            border-radius: 16px !important;
             padding: 6px !important;
-            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28) !important;
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55) !important;
+            max-height: 20rem !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+            scrollbar-width: thin;
+            scrollbar-color: #2C5A4A transparent;
+          }}
+          /* Streamlit fills the inner layout blocks with the page color, which made the
+             list light with pale text. :where() keeps this at zero specificity so the
+             hover rule below still wins. */
+          :where(div[data-testid="stPopoverBody"] *) {{
+            background-color: transparent !important;
+          }}
+          div[data-testid="stPopoverBody"] [data-testid="stVerticalBlock"] {{
+            gap: 2px !important;
           }}
 
-          [data-testid="stMain"] [data-testid="stPopoverBody"] button[data-testid="stBaseButton-tertiary"] {{
-            min-height: 36px !important;
+          div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-tertiary"] {{
+            min-height: 40px !important;
             border: 0 !important;
-            border-radius: 8px !important;
+            border-radius: 10px !important;
             background: transparent !important;
             color: #B4CDC3 !important;
             box-shadow: none !important;
+            padding: 10px 14px !important;
+            cursor: pointer !important;
           }}
-
-          [data-testid="stMain"] [data-testid="stPopoverBody"] button[data-testid="stBaseButton-tertiary"]:hover {{
+          div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-tertiary"] p {{
+            color: inherit !important;
+            font-size: 0.92rem !important;
+            font-weight: 600 !important;
+          }}
+          div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-tertiary"]:hover,
+          div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-tertiary"]:focus-visible {{
             background: #174537 !important;
             color: #FFFFFF !important;
+          }}
+
+          /* Left-align the text inside the popover buttons */
+          div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-tertiary"] > div:first-child {{
+            width: 100% !important;
+            display: flex !important;
+            justify-content: flex-start !important;
           }}
 
           [data-testid="stMain"] [data-testid="stDateInputField"],

@@ -42,12 +42,12 @@ def _dependence_reading(x_points, y_points, label: str, is_lag: bool) -> str:
 
     if np.isfinite(rho) and rho >= 0.4:
         strength = "strongly" if rho >= 0.7 else "moderately"
-        trend = f"{strength} raises the forecast as its value rises (Spearman ρ = {rho:+.2f})"
+        trend = f"{strength} raises the forecast as its value rises"
     elif np.isfinite(rho) and rho <= -0.4:
         strength = "strongly" if rho <= -0.7 else "moderately"
-        trend = f"{strength} lowers the forecast as its value rises (Spearman ρ = {rho:+.2f})"
+        trend = f"{strength} lowers the forecast as its value rises"
     else:
-        rho_text = f" (Spearman ρ = {rho:+.2f})" if np.isfinite(rho) else ""
+        rho_text =""
         trend = f"shows no clear one-directional trend{rho_text}, so its effect is small or non-monotonic"
     parts.append(f"Across {len(x)} test weeks, <strong>{name}</strong> {trend}.")
 
