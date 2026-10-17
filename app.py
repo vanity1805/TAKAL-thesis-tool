@@ -1,4 +1,4 @@
-""""TAKAL Streamlit entry point."""
+"""TAKAL Streamlit entry point."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import os
 import streamlit as st
 
 from components import apply_styles
+from export_ui import export_dialog
 from utils import LOGO_PATH, RESULTS_PATH, load_results, validate_results
 from views.benchmarking import render as render_benchmarking
 from views.explainability import render as render_explainability
@@ -20,6 +21,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
 apply_styles()
 
 try:
@@ -53,24 +55,27 @@ def reset_to_overview() -> None:
         st.session_state["technical_tabs_version"] += 1
     st.toast("You are already viewing the Overview section.")
 
+
 with st.sidebar:
     st.button("TAKAL", key="home_reset", on_click=reset_to_overview, use_container_width=True)
-
     model_label = st.selectbox(
         "Forecast shown",
         ["Multivariate model", "Univariate baseline"],
         key="active_model_select",
     )
     active_model = "multivariate" if "Multivariate" in model_label else "univariate"
-
     st.divider()
     st.toggle("View Technical Details", key="technical_details")
+    st.divider()
+    if st.button("Export report", key="export_open", icon=":material/download:", use_container_width=True):
+        export_dialog(RESULTS, os.path.getmtime(RESULTS_PATH), active_model)
 
 # --- Sync the URL with the current session state ---
 st.query_params["tech"] = str(st.session_state["technical_details"]).lower()
 st.query_params["model"] = "univariate" if active_model == "univariate" else "multivariate"
 
 weeks = RESULTS["weeks"]
+
 if not st.session_state["technical_details"]:
     st.markdown('<div class="page-heading">Overview</div>', unsafe_allow_html=True)
     render_overview(

@@ -9,7 +9,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from components import chart_layout, render_chart, render_table
+from components import chart_layout, render_chart, render_reading, render_table
+from interpretation import direction_text, importance_reading, importance_rows, local_reading, peso
 from utils import COLORS, beeswarm_points, dependence_points, feature_label, format_week_date
 
 
@@ -132,6 +133,43 @@ def render(shap_results: dict, weeks: list[str], active_model: str) -> None:
         importance_figure.update_xaxes(range=[0, max(importance_values or [0.0]) * 1.15])
         chart_layout(importance_figure, max(330, 54 * len(feature_names)))
         render_chart(st.empty(), importance_figure, "shap_importance")
+
+        ranked = importance_rows(feature_names, importance_values)
+        directions = {
+            name: direction_text(
+                shap_model["beeswarm"][name]["feature_value"], shap_model["beeswarm"][name]["shap"]
+            )
+            if name in shap_model["beeswarm"]
+            else "No clear pattern"
+            for name in feature_names
+        }
+        render_table(
+            pd.DataFrame(
+                [
+                    {
+                        "Rank": rank,
+                        "Indicator": feature_labels[row["name"]],
+                        "Average impact (PHP/kg)": row["impact"],
+                        "Share of total": row["share"],
+                        "Typical direction": directions[row["name"]],
+                    }
+                    for rank, row in enumerate(ranked, start=1)
+                ]
+            ),
+            formats={
+                "Average impact (PHP/kg)": "{:.3f}".format,
+                "Share of total": "{:.0%}".format,
+            },
+            label_columns=["Indicator"],
+        )
+        render_reading(
+            "Reading the importance table",
+            importance_reading(
+                [{**row, "name": feature_labels[row["name"]]} for row in ranked],
+                active_model,
+                horizon,
+            ),
+        )
 
     with beeswarm_tab:
         st.write("Each dot represents one test week. Its horizontal position shows the direction and size of that indicator’s contribution for that week.")
@@ -297,6 +335,14 @@ def render(shap_results: dict, weeks: list[str], active_model: str) -> None:
         },
         label_columns=["Indicator"],
         effect_column="Effect",
+    )
+    render_reading(
+        f"Reading the single-week table ({format_week_date(selected_week)})",
+        local_reading(
+            [(week_label(name), float(value)) for name, value in sorted_contributions],
+            baseline,
+            predicted_price,
+        ),
     )
 
     if explanation_rows:

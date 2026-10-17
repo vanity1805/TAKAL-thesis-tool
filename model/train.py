@@ -46,13 +46,14 @@ def build_model(lookback: int, n_features: int) -> Sequential:
     return model
 
 
-def run_experiment(df, feature_cols: list[str], lookback: int, verbose: int = 0) -> dict:
+def run_experiment(df, feature_cols: list[str], lookback: int, verbose: int = 0,
+                   seed: int = config.SEED) -> dict:
     """Build the supervised bundle for ``lookback`` and train one Stacked LSTM.
 
     Returns the trained model, the data bundle, the training history, and the
     best validation loss (used for lookback selection).
     """
-    set_seeds()
+    set_seeds(seed)
     bundle = preprocessing.build_supervised(df, feature_cols, lookback)
     model = build_model(lookback, len(feature_cols))
 
@@ -81,13 +82,29 @@ def run_experiment(df, feature_cols: list[str], lookback: int, verbose: int = 0)
 
 
 def select_lookback(df, feature_cols: list[str], verbose: int = 0) -> tuple[dict, dict]:
-    """Light tuning: train once per candidate L, keep the model with the lowest
-    validation loss. Returns (best_experiment, {L: val_loss} grid record)."""
+    """Seed-averaged lookback tuning.
+
+    For every candidate L, train the multivariate model (``feature_cols``) and the
+    univariate model once per seed in ``config.SELECTION_SEEDS`` and average the
+    best validation losses. L is the value with the lowest mean of the two models'
+    averaged losses, so the shared L favours neither model and is not decided by
+    one lucky or unlucky random initialisation. The test set is never touched.
+
+    Returns (best_multivariate_experiment, {L: mean_val_loss}). The returned
+    experiment is the multivariate model at the chosen L trained with
+    ``config.SEED`` (which must be one of ``SELECTION_SEEDS``).
+    """
+    uni_cols = [config.TARGET_COL]
     grid: dict[int, float] = {}
-    best: dict | None = None
+    best_l, best_score = None, float("inf")
     for lookback in config.L_GRID:
-        result = run_experiment(df, feature_cols, lookback, verbose=verbose)
-        grid[lookback] = result["val_loss"]
-        if best is None or result["val_loss"] < best["val_loss"]:
-            best = result
+        mv_losses, uni_losses = [], []
+        for seed in config.SELECTION_SEEDS:
+            mv_losses.append(run_experiment(df, feature_cols, lookback, verbose=verbose, seed=seed)["val_loss"])
+            uni_losses.append(run_experiment(df, uni_cols, lookback, verbose=verbose, seed=seed)["val_loss"])
+        score = 0.5 * (float(np.mean(mv_losses)) + float(np.mean(uni_losses)))
+        grid[lookback] = round(score, 6)
+        if score < best_score:
+            best_l, best_score = lookback, score
+    best = run_experiment(df, feature_cols, best_l, verbose=verbose, seed=config.SEED)
     return best, grid

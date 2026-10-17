@@ -11,9 +11,9 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 
-from components import chart_layout, metric_card, render_chart
+from components import chart_layout, metric_card, render_chart, render_reading
+from interpretation import overview_reading, peso
 from utils import format_week_date
-
 
 ROWS_PER_PAGE_OPTIONS = (10, 25, 50, 100)
 DATE_ORDER_OPTIONS = ("Latest first", "Oldest first")
@@ -67,9 +67,10 @@ def _money(value: float) -> str:
     return f"₱{value:.2f}"
 
 
-def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> None:
+def _render_week_table(weeks: list[str], forecast: dict, active_model: str, horizon: int) -> None:
     records = list(zip(weeks, forecast[active_model], forecast["actual"]))
     records.sort(key=lambda record: record[0], reverse=True)
+
     available_dates = {
         week: datetime.strptime(week, "%Y-%m-%d").date()
         for week, _, _ in records
@@ -89,6 +90,7 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
     st.session_state.setdefault("overview_date_order", DATE_ORDER_OPTIONS[0])
     st.session_state.setdefault("overview_from_date", earliest_data_date)
     st.session_state.setdefault("overview_to_date", latest_data_date)
+
     if not earliest_data_date <= st.session_state["overview_from_date"] <= latest_data_date:
         st.session_state["overview_from_date"] = earliest_data_date
     if not earliest_data_date <= st.session_state["overview_to_date"] <= latest_data_date:
@@ -159,35 +161,49 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
     page_count = max(1, math.ceil(total_rows / rows_per_page))
     current_page = min(max(int(st.session_state["overview_page"]), 0), page_count - 1)
     st.session_state["overview_page"] = current_page
+
     start_index = current_page * rows_per_page
     end_index = min(start_index + rows_per_page, total_rows)
 
-    table_rows = []
-    for week, predicted, actual in records[start_index:end_index]:
+    def _usable_actual(week: str, actual) -> bool:
         try:
             week_date = datetime.strptime(week, "%Y-%m-%d").date()
         except (TypeError, ValueError):
             week_date = None
-        actual_is_available = actual is not None and np.isfinite(float(actual))
-        if week_date is not None and week_date > today:
-            actual_is_available = False
+        if actual is None or not np.isfinite(float(actual)):
+            return False
+        return not (week_date is not None and week_date > today)
+
+    table_rows = []
+    for week, predicted, actual in records[start_index:end_index]:
+        actual_is_available = _usable_actual(week, actual)
         actual_markup = (
             f'<span class="weekly-actual">{_money(float(actual))}</span>'
             if actual_is_available
             else '<span class="weekly-not-yet">Not yet</span>'
         )
+        if actual_is_available:
+            difference = float(predicted) - float(actual)
+            css = "flat" if round(difference, 2) == 0 else ("up" if difference > 0 else "down")
+            difference_markup = f'<span class="weekly-diff-{css}">{peso(difference, signed=True)}</span>'
+        else:
+            difference_markup = '<span class="weekly-not-yet">Not yet</span>'
+
         date_content = html.escape(format_week_date(week))
         table_rows.append(
             f"<tr><td class=\"col-center col-label\"><span class=\"weekly-table-date\">{date_content}</span></td>"
             f'<td class="col-center"><span class="weekly-forecast">{_money(float(predicted))}</span></td>'
-            f'<td class="col-center">{actual_markup}</td></tr>'
+            f'<td class="col-center">{actual_markup}</td>'
+            f'<td class="col-center">{difference_markup}</td></tr>'
         )
 
     st.markdown(
         '<div class="weekly-table-wrap"><table class="weekly-table">'
         "<thead><tr><th scope=\"col\" class=\"col-center\">Date</th>"
         "<th scope=\"col\" class=\"col-center\">Forecasted</th>"
-        "<th scope=\"col\" class=\"col-center\">Actual</th></tr></thead><tbody>"
+        "<th scope=\"col\" class=\"col-center\">Actual</th>"
+        "<th scope=\"col\" class=\"col-center\">Difference"
+        '<span class="th-sub">Forecasted − Actual</span></th></tr></thead><tbody>'
         + "".join(table_rows)
         + "</tbody></table></div>",
         unsafe_allow_html=True,
@@ -211,6 +227,18 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str) -> N
             st.session_state["overview_page"] = min(page_count - 1, current_page + 1)
             st.rerun()
 
+    if records:
+        reading_weeks = [week for week, _, _ in records]
+        reading_forecast = [float(predicted) for _, predicted, _ in records]
+        reading_actual = [
+            float(actual) if _usable_actual(week, actual) else float("nan")
+            for week, _, actual in records
+        ]
+        render_reading(
+            f"Reading the table: {len(records):,} weeks in the selected date range",
+            overview_reading(reading_weeks, reading_forecast, reading_actual, active_model, horizon),
+        )
+
 
 def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool = False) -> None:
     horizon = _render_select(
@@ -225,6 +253,7 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
     starting_actual = float(actual_values[0])
     ending_forecast = float(selected_forecast[-1])
     horizon_change = ending_forecast - starting_actual
+
     usable_actuals = np.isfinite(actual_values)
     usable_actuals &= np.asarray(
         [datetime.strptime(week, "%Y-%m-%d").date() <= date.today() for week in weeks],
@@ -236,8 +265,7 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
         else float("nan")
     )
     change_text = "Rise" if horizon_change >= 0 else "Fall"
-    # The card value already shows the peso change, so the badge shows the same
-    # change relative to the starting price instead of repeating it.
+
     change_pct = (
         horizon_change / starting_actual * 100
         if np.isfinite(horizon_change) and np.isfinite(starting_actual) and starting_actual != 0
@@ -278,13 +306,13 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
     with metric_columns[2]:
         metric_card(
             "Change over period",
-            f"{'+' if horizon_change >= 0 else '-'}₱{abs(horizon_change):.2f}/kg"
+            f"{'+' if horizon_change >= 0 else '-'} {abs(horizon_change):.2f}/kg"
             if np.isfinite(horizon_change)
             else "Not available",
             f"{change_text} from first to final week",
             "The net difference between the starting observed price and the final week's forecasted price. The badge shows the same change as a percentage of the starting price.",
             badge=change_badge,
-            always_dark=False,  # WHITE by default, turns dark green ONLY on hover
+            always_dark=False,
         )
     with metric_columns[3]:
         metric_card(
@@ -304,8 +332,6 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
         )
 
         figure = go.Figure()
-
-        # 1. Univariate baseline trace (Sage dotted)
         figure.add_trace(
             go.Scatter(
                 x=weeks,
@@ -316,8 +342,6 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
                 hovertemplate="%{y:.2f} ₱/kg<extra>Univariate baseline</extra>",
             )
         )
-
-        # 2. Multivariate trace (Mint green with area gradient)
         is_active = active_model == "multivariate"
         figure.add_trace(
             go.Scatter(
@@ -332,8 +356,6 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
                 hovertemplate="%{y:.2f} ₱/kg<extra>Multivariate forecast</extra>",
             )
         )
-
-        # 3. Observed price trace (Dark forest green)
         figure.add_trace(
             go.Scatter(
                 x=weeks,
@@ -349,11 +371,9 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
             [actual_values, np.asarray(horizon_forecast["multivariate"]), np.asarray(horizon_forecast["univariate"])]
         )
         y_padding = max(0.5, (float(all_prices.max()) - float(all_prices.min())) * 0.15)
-
         chart_layout(figure, 440)
         figure.update_layout(
             hovermode="x unified",
-            # Anchored to the bottom edge so a wrapped legend grows upward into the top margin
             legend={
                 "orientation": "h",
                 "y": 1.02,
@@ -376,5 +396,11 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
 
         with st.container(key="chart_card_forecast"):
             render_chart(st.empty(), figure, "overview_technical_forecast")
+
+        # Add the reading box under the chart in technical details mode as well
+        render_reading(
+            f"Reading the {horizon}-week-ahead forecast ({len(weeks)} test weeks)",
+            overview_reading(weeks, horizon_forecast[active_model], horizon_forecast["actual"], active_model, horizon),
+        )
     else:
-        _render_week_table(weeks, horizon_forecast, active_model)
+        _render_week_table(weeks, horizon_forecast, active_model, int(horizon))

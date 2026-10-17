@@ -65,8 +65,9 @@ def validate_results(results: dict) -> dict:
     horizon_keys = [str(horizon) for horizon in range(1, 13)]
     if not weeks or any(key not in forecast for key in horizon_keys):
         raise ValueError("Forecast results must contain horizons 1 through 12.")
-    if len(weeks) != 66:
-        raise ValueError(f"Expected 66 common test target weeks, found {len(weeks)}.")
+    expected = (results.get("meta") or {}).get("n_test")
+    if expected is not None and len(weeks) != int(expected):
+        raise ValueError(f"Expected {expected} common test target weeks, found {len(weeks)}.")
     reference_actual = None
     for key in horizon_keys:
         horizon_forecast = forecast[key]

@@ -54,6 +54,9 @@ def build_supervised(df: pd.DataFrame, feature_cols: list[str], lookback: int) -
     tgt_scaler = MinMaxScaler().fit(tgt_raw[:s])
 
     feat_scaled = feat_scaler.transform(feat_raw)
+    if config.CLIP_INPUTS_TO_TRAIN_RANGE:
+        # Out-of-range (shock) values are held at the training min/max.
+        feat_scaled = np.clip(feat_scaled, 0.0, 1.0)
     tgt_scaled = tgt_scaler.transform(tgt_raw).ravel()
 
     horizon = config.FORECAST_HORIZON

@@ -3,7 +3,8 @@
 import pandas as pd
 import streamlit as st
 
-from components import render_table
+from components import render_reading, render_table
+from interpretation import dm_reading, metrics_reading
 
 
 def render(metrics: dict, dm_test: dict, week_count: int, active_model: str) -> None:
@@ -40,6 +41,10 @@ def render(metrics: dict, dm_test: dict, week_count: int, active_model: str) -> 
         },
         label_columns=["Horizon"],
     )
+    render_reading(
+        f"Reading the accuracy table ({model_label})",
+        metrics_reading(metrics, active_model),
+    )
 
     st.subheader("Diebold-Mariano Tests by Horizon")
     dm_rows = []
@@ -61,6 +66,7 @@ def render(metrics: dict, dm_test: dict, week_count: int, active_model: str) -> 
         },
         label_columns=["Horizon", "Decision"],
     )
+    render_reading("Reading the Diebold-Mariano table", dm_reading(dm_test))
 
     overall = dm_test["overall"]
     statistic = float(overall["statistic"])

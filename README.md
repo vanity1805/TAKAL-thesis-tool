@@ -32,3 +32,22 @@ prompting you to run `python -m model.run_all` first. Re-run the pipeline
 whenever `THESIS-MASTER_DATASET.xlsx` changes; the dashboard refreshes
 automatically.
 
+
+## Exporting a report (PDF or Excel)
+
+Click **Export report** in the sidebar. Tick the sections to include (Overview,
+Benchmarking, Explainability, or all), choose PDF or Excel, pick the forecast
+horizon (and the week for the single-week explanation), then press **Download**.
+
+- Reports use the model selected in the sidebar; Benchmarking always shows both
+  models side by side.
+- Every table is followed by a plain-language "Reading" box. The same wording is
+  shown in the dashboard under each table (`interpretation.py`).
+- The Overview table has a **Difference** column (Forecasted − Actual).
+- PDF: cover page with contents, one banner per section, charts, tables, glossary.
+  Excel: a "Read me" sheet with clickable contents, one sheet per section, a
+  separate frozen-header sheet for the weekly table, native charts, and a glossary.
+
+Code map: `report_data.py` (what goes in the report), `report_pdf.py`,
+`report_excel.py` (how it is drawn), `export_ui.py` (the dialog),
+`interpretation.py` (the plain-language wording).

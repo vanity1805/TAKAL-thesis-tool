@@ -3,3 +3,5 @@ plotly>=5.22
 numpy>=1.26
 pandas>=2.0
 openpyxl>=3.1
+reportlab>=4.0
+matplotlib>=3.8

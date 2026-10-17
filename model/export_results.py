@@ -23,16 +23,18 @@ def _predict_php_by_horizon(model, bundle: dict) -> np.ndarray:
     return np.column_stack(predictions)
 
 
-def _assert_split_and_alignment(mv_bundle: dict, uni_bundle: dict, split: int) -> None:
+def _assert_split_and_alignment(
+    mv_bundle: dict, uni_bundle: dict, split: int, n_test: int
+) -> None:
     """Fail fast if the no-leakage or paired-test-window invariants are violated."""
     for label, bundle in (("multivariate", mv_bundle), ("univariate", uni_bundle)):
         if np.any(bundle["train_target_rows"] >= split):
             raise AssertionError(f"{label} training target reaches the test region.")
         if np.any(bundle["val_target_rows"] >= split):
             raise AssertionError(f"{label} validation target reaches the test region.")
-        if len(bundle["rows_test"]) != 66:
+        if len(bundle["rows_test"]) != n_test:
             raise AssertionError(
-                f"{label} test set has {len(bundle['rows_test'])} targets, expected 66."
+                f"{label} test set has {len(bundle['rows_test'])} targets, expected {n_test}."
             )
         for horizon in range(1, config.FORECAST_HORIZON + 1):
             key = str(horizon)
@@ -42,18 +44,35 @@ def _assert_split_and_alignment(mv_bundle: dict, uni_bundle: dict, split: int) -
                 raise AssertionError(f"Horizon {horizon} uses incorrect forecast origins.")
             if np.any(actual_origins > bundle["rows_test"]):
                 raise AssertionError(f"Horizon {horizon} uses a future input row.")
-            if len(bundle["X_test_by_horizon"][key]) != 66:
-                raise AssertionError(f"Horizon {horizon} does not have 66 test windows.")
-            if len(bundle["y_test_orig_by_horizon"][key]) != 66:
-                raise AssertionError(f"Horizon {horizon} does not have 66 test targets.")
+            if len(bundle["X_test_by_horizon"][key]) != n_test:
+                raise AssertionError(f"Horizon {horizon} does not have {n_test} test windows.")
+            if len(bundle["y_test_orig_by_horizon"][key]) != n_test:
+                raise AssertionError(f"Horizon {horizon} does not have {n_test} test targets.")
             if bundle["weeks_by_horizon"][key] != bundle["weeks"]:
                 raise AssertionError(f"Horizon {horizon} uses different target dates.")
-            if len(bundle["feat_last_orig"][key]) != 66:
+            if len(bundle["feat_last_orig"][key]) != n_test:
                 raise AssertionError(f"Horizon {horizon} lacks aligned last-input features.")
     if mv_bundle["lookback"] != uni_bundle["lookback"]:
         raise AssertionError("The multivariate and univariate models use different L values.")
     if mv_bundle["weeks"] != uni_bundle["weeks"]:
         raise AssertionError("The two experiments do not share the same target dates.")
+
+
+def _data_note(df, feature_cols: list[str], split: int) -> str:
+    """Describe, from the data itself, what a reader should double-check."""
+    parts = []
+    for col, n in df.attrs.get("imputed_weeks", {}).items():
+        parts.append(f"{col}: {n} trailing week(s) forward-filled with the last observed value.")
+    for col in feature_cols:
+        train = df[col].iloc[:split]
+        test = df[col].iloc[split:]
+        n_out = int(((test < train.min()) | (test > train.max())).sum())
+        if n_out:
+            parts.append(
+                f"{col}: {n_out} test week(s) fall outside the training range "
+                f"[{train.min():.4g}, {train.max():.4g}]; verify the source."
+            )
+    return " ".join(parts) or "No imputation or out-of-range inputs detected."
 
 
 def build_results(verbose: int = 0) -> dict:
@@ -71,15 +90,21 @@ def build_results(verbose: int = 0) -> dict:
     uni = train.run_experiment(df, uni_cols, lookback, verbose=verbose)
     mv_bundle, uni_bundle = best_mv["bundle"], uni["bundle"]
     split = preprocessing.split_row(len(df))
-    _assert_split_and_alignment(mv_bundle, uni_bundle, split)
+    n_test = len(df) - split
+    if n_test < config.MIN_TEST_WEEKS:
+        raise ValueError(
+            f"Only {n_test} test weeks; at least {config.MIN_TEST_WEEKS} are needed "
+            "for a meaningful evaluation (see config.MIN_TEST_WEEKS)."
+        )
+    _assert_split_and_alignment(mv_bundle, uni_bundle, split, n_test)
 
     weeks = mv_bundle["weeks"]
     actual = mv_bundle["y_test_orig"]
     pred_mv = _predict_php_by_horizon(best_mv["model"], mv_bundle)
     pred_uni = _predict_php_by_horizon(uni["model"], uni_bundle)
-    if pred_mv.shape != pred_uni.shape or pred_mv.shape != (66, config.FORECAST_HORIZON):
+    if pred_mv.shape != pred_uni.shape or pred_mv.shape != (n_test, config.FORECAST_HORIZON):
         raise AssertionError(
-            f"Expected paired prediction shape (66, {config.FORECAST_HORIZON}); "
+            f"Expected paired prediction shape ({n_test}, {config.FORECAST_HORIZON}); "
             f"got {pred_mv.shape} and {pred_uni.shape}."
         )
 
@@ -154,10 +179,11 @@ def build_results(verbose: int = 0) -> dict:
             "features": mv_names,
             "dataset_rows": int(len(df)),
             "horizons": list(range(1, config.FORECAST_HORIZON + 1)),
-            "data_note": (
-                "rice_import_mt: 9 trailing weeks forward-filled (5049 MT). "
-                "Recent diesel_price values (Mar-Apr 2026) are unusually high; verify source."
-            ),
+            "data_note": _data_note(df, mv_cols, split),
+            "data_range": [
+                df[config.DATE_COL].iloc[0].strftime("%Y-%m-%d"),
+                df[config.DATE_COL].iloc[-1].strftime("%Y-%m-%d"),
+            ],
         },
         "weeks": weeks,
         "forecast": forecasts,
@@ -174,7 +200,8 @@ def build_results(verbose: int = 0) -> dict:
     return results
 
 
-def save(results: dict, path: str = config.RESULTS_JSON) -> str:
+def save(results: dict, path: str | None = None) -> str:
+    path = path or config.RESULTS_JSON
     directory = os.path.dirname(path)
     if directory:
         os.makedirs(directory, exist_ok=True)

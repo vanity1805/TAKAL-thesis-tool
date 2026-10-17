@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import base64
 import html
+import io
 import os
+import re
 
 import plotly.graph_objects as go
 import streamlit as st
@@ -12,11 +14,29 @@ import streamlit as st
 from utils import BRAND_LOGO_PATH, COLORS
 
 
+@st.cache_data(show_spinner=False)
+def _load_cropped_logo_b64(path: str, modified_at: float) -> str:
+    """Load the brand logo and trim transparent slide margins so it centers and scales properly."""
+    try:
+        from PIL import Image
+
+        with Image.open(path) as img:
+            rgba = img.convert("RGBA")
+            bbox = rgba.getchannel("A").getbbox()
+            if bbox:
+                rgba = rgba.crop(bbox)
+            buffer = io.BytesIO()
+            rgba.save(buffer, format="PNG")
+            return base64.b64encode(buffer.getvalue()).decode("ascii")
+    except Exception:
+        with open(path, "rb") as brand_logo_file:
+            return base64.b64encode(brand_logo_file.read()).decode("ascii")
+
+
 def apply_styles() -> None:
     brand_logo_b64 = ""
     if os.path.exists(BRAND_LOGO_PATH):
-        with open(BRAND_LOGO_PATH, "rb") as brand_logo_file:
-            brand_logo_b64 = base64.b64encode(brand_logo_file.read()).decode("ascii")
+        brand_logo_b64 = _load_cropped_logo_b64(BRAND_LOGO_PATH, os.path.getmtime(BRAND_LOGO_PATH))
 
     st.markdown(
         f"""
@@ -67,9 +87,10 @@ def apply_styles() -> None:
             max-width: 1400px;
             padding: 2.2rem 2.8rem 3.5rem 2.8rem;
           }}
+
           /* Top padding only: shrinks the gap above the title, leaves width and side padding alone */
           [data-testid="stMainBlockContainer"] {{
-            padding-top: 4.00rem !important;
+            padding-top: 3.25rem !important;
           }}
 
           /* The injected <style> block renders as an empty element that adds a flex gap */
@@ -86,6 +107,9 @@ def apply_styles() -> None:
           
           [data-testid="stSidebar"] > div {{
             background-color: var(--takal-forest-dark) !important;
+            height: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
           }}
 
           /* Sidebar width: extra room so the dropdown label is not truncated.
@@ -94,6 +118,7 @@ def apply_styles() -> None:
             min-width: min(22rem, 86vw) !important;
             max-width: min(22rem, 86vw) !important;
           }}
+
           [data-testid="stSidebar"][aria-expanded="false"] {{
             min-width: 0 !important;
             max-width: 0 !important;
@@ -113,6 +138,7 @@ def apply_styles() -> None:
           }}
           [data-testid="stSidebarContent"] {{
             scrollbar-width: none !important;
+            height: 100% !important;
           }}
 
           /* Make Streamlit's top header transparent to remove the white gap */
@@ -124,7 +150,9 @@ def apply_styles() -> None:
           [data-testid="stSidebarContent"],
           [data-testid="stSidebarUserContent"],
           [data-testid="stSidebarUserContent"] > div,
-          [data-testid="stSidebarUserContent"] > div > div[data-testid="stVerticalBlock"] {{
+          [data-testid="stSidebarUserContent"] > div > [data-testid="stVerticalBlockBorderWrapper"],
+          [data-testid="stSidebarUserContent"] > div > div[data-testid="stVerticalBlock"],
+          [data-testid="stSidebarUserContent"] > div > [data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {{
             display: flex !important;
             flex-direction: column !important;
             flex-grow: 1 !important;
@@ -132,7 +160,7 @@ def apply_styles() -> None:
           
           [data-testid="stSidebarUserContent"] {{
             padding-top: 0.5rem !important;
-            padding-bottom: 1.25rem !important;
+            padding-bottom: 1.5rem !important;
             padding-left: 1.4rem !important;
             padding-right: 1.4rem !important;
           }}
@@ -149,59 +177,63 @@ def apply_styles() -> None:
             z-index: 5;
           }}
 
-          /* Sidebar Logo Button */
-          .st-key-home_reset {{
-            --logo-gap-top: 1.75rem;
-            --logo-gap-bottom: 0.25rem;
-            display: flex !important;
-            justify-content: center !important;
-            margin: var(--logo-gap-top) 0 var(--logo-gap-bottom) 0 !important;
-          }}
-          .st-key-home_reset > div,
-          .st-key-home_reset [data-testid="stButton"] {{
+          /* --- SIDEBAR LOGO BUTTON --- */
+          [data-testid="stSidebar"] .st-key-home_reset {{
+            --logo-gap-top: 1.25rem;
+            --logo-gap-bottom: 0.5rem;
             width: 100% !important;
             display: flex !important;
             justify-content: center !important;
+            align-items: center !important;
+            margin: var(--logo-gap-top) 0 var(--logo-gap-bottom) 0 !important;
           }}
-          .st-key-home_reset button {{
+
+          [data-testid="stSidebar"] .st-key-home_reset > div,
+          [data-testid="stSidebar"] .st-key-home_reset [data-testid="stButton"] {{
+            width: 100% !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+          }}
+
+          [data-testid="stSidebar"] .st-key-home_reset button {{
             min-height: 10.5rem !important;
             width: 100% !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             background: transparent !important;
-            border: 1px solid transparent !important;
+            border: none !important;
             box-shadow: none !important;
             transition: none !important;
             padding: 0 !important;
+            margin: 0 auto !important;
           }}
-          .st-key-home_reset button:hover,
-          .st-key-home_reset button:focus,
-          .st-key-home_reset button:active {{
+
+          [data-testid="stSidebar"] .st-key-home_reset button:hover,
+          [data-testid="stSidebar"] .st-key-home_reset button:focus,
+          [data-testid="stSidebar"] .st-key-home_reset button:active {{
             background: transparent !important;
-            border-color: transparent !important;
+            border: none !important;
             box-shadow: none !important;
             transform: none !important;
           }}
-          .st-key-home_reset button::before {{
+
+          [data-testid="stSidebar"] .st-key-home_reset button::before {{
             content: "";
-            display: block;
-            width: 86%;
-            height: 9.5rem;
-            margin: 0 auto;
-            background: center / contain no-repeat url("data:image/png;base64,{brand_logo_b64}");
+            display: block !important;
+            width: 92% !important;
+            height: 9.8rem !important;
+            margin: 0 auto !important;
+            background: center / contain no-repeat url("data:image/png;base64,{brand_logo_b64}") !important;
             filter: brightness(1.05) contrast(1.03);
+            flex: 0 0 92% !important;
           }}
-          .st-key-home_reset button p {{
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
+
+          /* Hide the button's inner text container completely so ::before centers perfectly */
+          [data-testid="stSidebar"] .st-key-home_reset button > div,
+          [data-testid="stSidebar"] .st-key-home_reset button p {{
+            display: none !important;
           }}
 
           /* --- SIDEBAR DROPDOWN SPECIFICATION --- */
@@ -229,6 +261,7 @@ def apply_styles() -> None:
           }}
 
           [data-testid="stSidebar"] [data-testid="stSelectbox"] div[data-baseweb="select"] > div:first-child {{
+            position: relative !important;
             border: 1px solid var(--takal-forest-border) !important;
             border-radius: 20px !important;
             min-height: 48px !important;
@@ -290,7 +323,6 @@ def apply_styles() -> None:
 
           [data-testid="stSidebar"] [data-testid="stSelectbox"] div[data-baseweb="select"] input {{
             caret-color: transparent !important;
-            pointer-events: none !important;
             cursor: pointer !important;
             user-select: none !important;
             color: transparent !important;
@@ -309,6 +341,7 @@ def apply_styles() -> None:
 
           /* --- SIDEBAR COMBOBOX (React Aria) --- */
           [data-testid="stSidebar"] [data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"] {{
+            position: relative !important;
             display: flex !important;
             align-items: center !important;
             gap: 12px !important;
@@ -363,15 +396,35 @@ def apply_styles() -> None:
             letter-spacing: -0.01em !important;
             cursor: pointer !important;
             user-select: none !important;
+            pointer-events: none !important;
           }}
 
           [data-testid="stSidebar"] [data-testid="stSelectbox"] .react-aria-ComboBox button {{
+            position: static !important;
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
             margin-left: auto !important;
             color: #7B9B8E !important;
+            cursor: pointer !important;
+          }}
+
+          /* Stretch the toggle button hit-area across the entire selectbox pill */
+          [data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"] {{
+            position: relative !important;
+          }}
+
+          [data-testid="stSelectbox"] .react-aria-ComboBox button {{
+            position: static !important;
+          }}
+
+          [data-testid="stSelectbox"] .react-aria-ComboBox button::after {{
+            content: "" !important;
+            position: absolute !important;
+            inset: 0 !important;
+            z-index: 2 !important;
+            cursor: pointer !important;
           }}
 
           [data-testid="stSidebar"] [data-testid="stSelectbox"] .react-aria-ComboBox button svg {{
@@ -380,63 +433,104 @@ def apply_styles() -> None:
             height: 1.15rem !important;
           }}
 
-          [data-testid="stSelectboxVirtualDropdown"] {{
-            background: #0D2E24 !important;
-            border: 1px solid #1B473A !important;
+          /* --- DROPDOWN POPOVER LIST (single clean container & single hover pill) --- */
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])),
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) > div,
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) > div > div {{
+            background: transparent !important;
             border-radius: 16px !important;
-            padding: 6px !important;
-            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55) !important;
-            overflow: hidden !important;
-          }}
-          [data-testid="stSelectboxVirtualDropdown"] [role="listbox"] {{
-            background: transparent !important;
-          }}
-          [data-testid="stSelectboxVirtualDropdown"] [role="option"] {{
-            background: transparent !important;
-            color: #B4CDC3 !important;
-            font-size: 0.92rem !important;
-            font-weight: 500 !important;
-            border-radius: 10px !important;
-            cursor: pointer !important;
-          }}
-          [data-testid="stSelectboxVirtualDropdown"] [role="option"] * {{
-            color: inherit !important;
-          }}
-          [data-testid="stSelectboxVirtualDropdown"] [role="option"]:hover,
-          [data-testid="stSelectboxVirtualDropdown"] [role="option"][data-focused="true"],
-          [data-testid="stSelectboxVirtualDropdown"] [role="option"][aria-selected="true"] {{
-            background: #174537 !important;
-            color: #FFFFFF !important;
-            font-weight: 600 !important;
+            box-shadow: none !important;
+            border: none !important;
           }}
 
-          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) {{
+          :where(div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])):not(:has([data-baseweb="calendar"])) div) {{
             background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
           }}
-          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="listbox"],
-          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) ul {{
+
+          div[data-baseweb="popover"]:has([data-testid="stSelectboxVirtualDropdown"]),
+          div[data-baseweb="popover"]:has([data-testid="stSelectboxVirtualDropdown"]) div:not([data-testid="stSelectboxVirtualDropdown"]) {{
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+          }}
+
+          [data-testid="stSelectboxVirtualDropdown"],
+          div[data-baseweb="popover"]:not(:has([data-testid="stSelectboxVirtualDropdown"])):has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="listbox"] {{
             background-color: #0D2E24 !important;
             background: #0D2E24 !important;
             border: 1px solid #1B473A !important;
             border-radius: 16px !important;
             padding: 6px !important;
             box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55) !important;
+            overflow-x: hidden !important;
           }}
-          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="option"],
-          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) li {{
+
+          /* Prevent double border/padding when [role="listbox"] or ul sits inside stSelectboxVirtualDropdown */
+          [data-testid="stSelectboxVirtualDropdown"] [role="listbox"],
+          [data-testid="stSelectboxVirtualDropdown"] ul,
+          ul[data-testid="stSelectboxVirtualDropdown"] ul {{
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+          }}
+
+          /* Reset outer li wrapper if [role="option"] is nested inside it */
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) li:not([role="option"]) {{
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+          }}
+
+          /* Single option row styling */
+          [data-testid="stSelectboxVirtualDropdown"] [role="option"],
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="option"] {{
             background-color: transparent !important;
+            background: transparent !important;
             color: #B4CDC3 !important;
             font-size: 0.92rem !important;
-            font-weight: 600 !important;
+            font-weight: 500 !important;
             border-radius: 10px !important;
-            padding: 10px 14px !important;
+            padding: 8px 12px !important;
+            margin: 3px 0 !important;
             cursor: pointer !important;
+            box-shadow: none !important;
+            border: none !important;
           }}
+
+          /* Strip all inner child backgrounds/padding so hover is never duplicated */
+          [data-testid="stSelectboxVirtualDropdown"] [role="option"] *,
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="option"] * {{
+            background-color: transparent !important;
+            background: transparent !important;
+            color: inherit !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+          }}
+
+          /* Currently selected option: a quieter tint so it never competes with the hover highlight */
+          [data-testid="stSelectboxVirtualDropdown"] [role="option"][aria-selected="true"],
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="option"][aria-selected="true"] {{
+            background-color: #123B2E !important;
+            background: #123B2E !important;
+            color: #FFFFFF !important;
+            font-weight: 600 !important;
+          }}
+
+          /* Hover / keyboard focus highlight */
+          [data-testid="stSelectboxVirtualDropdown"] [role="option"]:hover,
+          [data-testid="stSelectboxVirtualDropdown"] [role="option"][data-focused="true"],
           div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="option"]:hover,
-          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="option"][aria-selected="true"],
-          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) li:hover,
-          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) li[aria-selected="true"] {{
+          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) [role="option"][data-focused="true"] {{
             background-color: #174537 !important;
+            background: #174537 !important;
             color: #FFFFFF !important;
             font-weight: 600 !important;
           }}
@@ -449,42 +543,10 @@ def apply_styles() -> None:
             box-shadow: 0 12px 30px rgba(10, 35, 28, 0.14) !important;
           }}
 
-          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])),
-          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) > div,
-          div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])) > div > div {{
-            background: transparent !important;
-            border-radius: 16px !important;
-            box-shadow: none !important;
-            border: none !important;
-          }}
-
-          /* Dropdown popover: clear every white wrapper behind the rounded dark list.
-          :where() keeps specificity at zero so the dark list rules above still win. */
-          :where(div[data-baseweb="popover"]:has([role="listbox"]):not(:has([data-testid="stMainMenuList"])):not(:has([data-baseweb="calendar"])) div) {{
-            background: transparent !important;
-            border-color: transparent !important;
-            box-shadow: none !important;
-          }}
-
-          /* Select dropdown popup: clear every wrapper behind the rounded dark list */
-          div[data-baseweb="popover"]:has([data-testid="stSelectboxVirtualDropdown"]),
-          div[data-baseweb="popover"]:has([data-testid="stSelectboxVirtualDropdown"]) div:not([data-testid="stSelectboxVirtualDropdown"]):not([data-testid="stSelectboxVirtualDropdown"] *) {{
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            border-radius: 16px !important;
-          }}
-
-          div[data-baseweb="popover"]:has([data-baseweb="calendar"]),
-          div[data-baseweb="popover"]:has([data-baseweb="calendar"]) > div {{
-            background: #FFFFFF !important;
-            border-radius: 12px !important;
-            box-shadow: 0 12px 30px rgba(10, 35, 28, 0.14) !important;
-          }}
-
           div[data-baseweb="calendar"] [role="gridcell"]:not([aria-selected="true"]):hover::after {{
             background-color: #DDEFE8 !important;
           }}
+
           div[data-baseweb="calendar"] [role="gridcell"]:not([aria-selected="true"]):hover {{
             color: var(--takal-text) !important;
           }}
@@ -493,9 +555,11 @@ def apply_styles() -> None:
             display: none !important;
           }}
 
+          /* --- VIEW TECHNICAL DETAILS TOGGLE (pinned to bottom, thin 1px border) --- */
           [data-testid="stSidebar"] .st-key-technical_details {{
             margin-top: auto !important;
             padding-top: 1.5rem !important;
+            padding-bottom: 0.35rem !important;
             width: 100% !important;
             display: flex !important;
             align-items: center !important;
@@ -532,50 +596,67 @@ def apply_styles() -> None:
           [data-testid="stSidebar"] .st-key-technical_details [data-testid="stWidgetLabel"],
           [data-testid="stSidebar"] .st-key-technical_details [data-testid="stWidgetLabel"] * {{
             background: transparent !important;
+            box-shadow: none !important;
             margin: 0 !important;
           }}
 
-          [data-testid="stSidebar"] .st-key-technical_details label > div:first-child {{
+          /* Track: crisp 1px border (no doubled inset box-shadow) */
+          [data-testid="stSidebar"] .st-key-technical_details label > div:not([data-testid="stWidgetLabel"]) {{
             flex: 0 0 auto !important;
             background-color: rgba(255, 255, 255, 0.16) !important;
-            border-color: #7FA394 !important;
-            box-shadow: inset 0 0 0 1.5px #7FA394 !important;
-            transition: background-color 200ms ease, box-shadow 200ms ease !important;
+            background: rgba(255, 255, 255, 0.16) !important;
+            border: 1px solid rgba(127, 163, 148, 0.75) !important;
+            border-radius: 9999px !important;
+            box-shadow: none !important;
+            transition: background-color 200ms ease, border-color 200ms ease !important;
           }}
-          [data-testid="stSidebar"] .st-key-technical_details label:hover > div:first-child {{
+
+          [data-testid="stSidebar"] .st-key-technical_details label:hover > div:not([data-testid="stWidgetLabel"]) {{
             background-color: rgba(255, 255, 255, 0.24) !important;
+            background: rgba(255, 255, 255, 0.24) !important;
+            border-color: #98B9AC !important;
           }}
-          [data-testid="stSidebar"] .st-key-technical_details label > div:first-child > div {{
+
+          /* Thumb: the white knob inside the track */
+          [data-testid="stSidebar"] .st-key-technical_details label > div:not([data-testid="stWidgetLabel"]) > div {{
             background-color: #E8F5EF !important;
+            background: #E8F5EF !important;
           }}
-          [data-testid="stSidebar"] .st-key-technical_details label:has(input:checked) > div:first-child {{
+
+          /* On state */
+          [data-testid="stSidebar"] .st-key-technical_details label:has(input:checked) > div:not([data-testid="stWidgetLabel"]) {{
             background-color: var(--takal-mint) !important;
+            background: var(--takal-mint) !important;
             border-color: var(--takal-mint) !important;
             box-shadow: none !important;
           }}
 
-          /* Safety net: the label text never gets a background */
-          [data-testid="stSidebar"] .st-key-technical_details label > div:not(:first-child),
-          [data-testid="stSidebar"] .st-key-technical_details label > div:not(:first-child) * {{
-            background: transparent !important;
-            box-shadow: none !important;
+          /* --- PILL TABS SITTING ON A THIN LINE (supports both BaseWeb <button> and React Aria <div role="tab">) --- */
+          [data-baseweb="tabs"],
+          [data-testid="stTabs"] {{
+            gap: 0 !important;
           }}
 
-                  /* --- PILL TABS SITTING ON A THIN LINE (ARIA roles only) --- */
           [data-baseweb="tab-highlight"],
-          [data-baseweb="tab-border"] {{
+          [data-baseweb="tab-border"],
+          [role="tablist"] .react-aria-SelectionIndicator,
+          [role="tab"] .react-aria-SelectionIndicator,
+          [role="tab"]::before,
+          [role="tab"]::after {{
+            content: none !important;
             display: none !important;
           }}
+
           [role="tablist"]::before,
           [role="tablist"]::after {{
             content: none !important;
             display: none !important;
           }}
 
-          /* Pill container: rounded on top, square bottom corners, sitting on the line */
+          /* Pill container: rounded on top, square bottom corners, sitting flush on the line */
           [role="tablist"] {{
             background-color: #E6EBE8 !important;
-            padding: 5px 5px 0 5px !important; 
+            padding: 5px 5px 0 5px !important;
             border-radius: 16px 16px 0 0 !important;
             gap: 4px !important;
             margin: 0 !important;
@@ -590,34 +671,50 @@ def apply_styles() -> None:
             padding-top: 1.5rem !important;
             border-top: 1px solid #E3E9E5 !important;
           }}
+
           [role="tabpanel"] [role="tabpanel"] {{
             padding-top: 1.1rem !important;
           }}
 
+          [role="tab"],
           button[role="tab"] {{
-            border-radius: 12px 12px 0 0 !important;   /* was: 12px */
+            border-radius: 12px 12px 0 0 !important;
             padding: 8px 20px !important;
+            margin: 0 !important;
             height: auto !important;
             background: transparent !important;
             border: none !important;
+            border-bottom: none !important;
             outline: none !important;
+            box-shadow: none !important;
             color: #556E65 !important;
             font-size: 1.05rem !important;
             font-weight: 600 !important;
+            cursor: pointer !important;
           }}
           
+          [role="tab"]:hover,
           button[role="tab"]:hover {{
             color: var(--takal-text) !important;
           }}
+
+          [role="tab"] p,
+          [role="tab"] [data-testid="stMarkdownContainer"] p,
           button[role="tab"] p,
           button[role="tab"] [data-testid="stMarkdownContainer"] p {{
             font-size: 1.05rem !important;
             font-weight: 600 !important;
             margin: 0 !important;
+            color: inherit !important;
           }}
+
+          [role="tab"][aria-selected="true"],
           button[role="tab"][aria-selected="true"] {{
             background-color: #FFFFFF !important;
+            background: #FFFFFF !important;
             color: var(--takal-text) !important;
+            border: none !important;
+            border-bottom: none !important;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
           }}
 
@@ -647,6 +744,7 @@ def apply_styles() -> None:
           [data-testid="stMain"] hr {{
             margin: 1.25rem 0 !important;
           }}
+
           [data-testid="stMain"] [data-testid="stElementContainer"]:has(hr) + [data-testid="stElementContainer"] h3 {{
             margin-top: 0 !important;
             padding-top: 0 !important;
@@ -664,6 +762,7 @@ def apply_styles() -> None:
           [data-testid="stMain"] [data-testid="stElementContainer"]:has(.page-intro):has(+ [data-testid="stElementContainer"] h3) .page-intro {{
             margin-bottom: 0 !important;
           }}
+
           [data-testid="stMain"] [data-testid="stElementContainer"]:has(.page-intro) + [data-testid="stElementContainer"] h3,
           [data-testid="stMain"] [data-testid="stElementContainer"]:has(.page-intro) + [data-testid="stElementContainer"] [data-testid="stHeading"] {{
             margin-top: 1.5rem !important;
@@ -690,11 +789,13 @@ def apply_styles() -> None:
             border: 1px solid var(--takal-border);
             border-radius: 20px;
             padding: 1.4rem 1.5rem;
-            min-height: 148px;
+            min-height: 176px;
+            height: 100%;
+            box-sizing: border-box;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start;
             transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1),
                         border-color 250ms cubic-bezier(0.4, 0, 0.2, 1),
                         box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1),
@@ -708,6 +809,7 @@ def apply_styles() -> None:
             align-items: flex-start;
             justify-content: space-between;
             gap: 0.5rem;
+            min-height: 3.4rem;
           }}
 
           .metric-label {{
@@ -717,6 +819,7 @@ def apply_styles() -> None:
             text-transform: uppercase;
             letter-spacing: 0.05em;
             line-height: 1.3;
+            min-width: 0;
             transition: color 250ms ease;
           }}
 
@@ -724,6 +827,7 @@ def apply_styles() -> None:
             display: flex;
             align-items: center;
             gap: 0.45rem;
+            flex-shrink: 0;
           }}
 
           .metric-badge {{
@@ -734,6 +838,7 @@ def apply_styles() -> None:
             padding: 3px 9px;
             border-radius: 9999px;
             letter-spacing: -0.01em;
+            white-space: nowrap;
             transition: background-color 250ms ease, color 250ms ease;
           }}
 
@@ -785,7 +890,7 @@ def apply_styles() -> None:
             letter-spacing: -0.035em;
             color: var(--takal-text);
             line-height: 1.15;
-            margin: 0.6rem 0 0.25rem 0;
+            margin: 0.6rem 0 0.45rem 0;
             transition: color 250ms ease;
           }}
 
@@ -793,6 +898,11 @@ def apply_styles() -> None:
             color: var(--takal-muted);
             font-size: 0.84rem;
             font-weight: 500;
+            line-height: 1.35;
+            margin-top: auto;
+            min-height: 2.3rem;
+            display: flex;
+            align-items: flex-start;
             transition: color 250ms ease;
           }}
 
@@ -924,8 +1034,7 @@ def apply_styles() -> None:
             margin-left: auto !important;
           }}
 
-/* --- POPOVER DROPDOWN MENU: same look as the select dropdowns --- */
-          /* Clear any wrapper Streamlit paints around the popover body */
+          /* --- POPOVER DROPDOWN MENU: same look as the select dropdowns --- */
           div[data-baseweb="popover"]:has([data-testid="stPopoverBody"]),
           div[data-baseweb="popover"]:has([data-testid="stPopoverBody"]) > div {{
             background: transparent !important;
@@ -933,6 +1042,7 @@ def apply_styles() -> None:
             box-shadow: none !important;
             border-radius: 16px !important;
           }}
+
           div[data-testid="stPopoverBody"] {{
             background: #0D2E24 !important;
             border: 1px solid #1B473A !important;
@@ -945,12 +1055,11 @@ def apply_styles() -> None:
             scrollbar-width: thin;
             scrollbar-color: #2C5A4A transparent;
           }}
-          /* Streamlit fills the inner layout blocks with the page color, which made the
-             list light with pale text. :where() keeps this at zero specificity so the
-             hover rule below still wins. */
+
           :where(div[data-testid="stPopoverBody"] *) {{
             background-color: transparent !important;
           }}
+
           div[data-testid="stPopoverBody"] [data-testid="stVerticalBlock"] {{
             gap: 2px !important;
           }}
@@ -965,18 +1074,19 @@ def apply_styles() -> None:
             padding: 10px 14px !important;
             cursor: pointer !important;
           }}
+
           div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-tertiary"] p {{
             color: inherit !important;
             font-size: 0.92rem !important;
             font-weight: 600 !important;
           }}
+
           div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-tertiary"]:hover,
           div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-tertiary"]:focus-visible {{
             background: #174537 !important;
             color: #FFFFFF !important;
           }}
 
-          /* Left-align the text inside the popover buttons */
           div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-tertiary"] > div:first-child {{
             width: 100% !important;
             display: flex !important;
@@ -988,6 +1098,7 @@ def apply_styles() -> None:
           [data-testid="stMain"] [data-testid="stSelectbox"] div[data-baseweb="select"] > div:first-child,
           [data-testid="stMain"] [data-baseweb="input"],
           [data-testid="stMain"] [data-baseweb="base-input"] {{
+            position: relative !important;
             background: #FFFFFF !important;
             border: 1px solid #D5E0DA !important;
             border-radius: 12px !important;
@@ -997,13 +1108,15 @@ def apply_styles() -> None:
           }}
 
           [data-testid="stMain"] [data-testid="stDateInputField"]:hover,
-          [data-testid="stMain"] [data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"]:hover {{
+          [data-testid="stMain"] [data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"]:hover,
+          [data-testid="stMain"] [data-testid="stSelectbox"] div[data-baseweb="select"] > div:first-child:hover {{
             border-color: #A9C3B8 !important;
             background: #FBFDFC !important;
           }}
 
           [data-testid="stMain"] [data-testid="stDateInputField"]:focus-within,
           [data-testid="stMain"] [data-testid="stSelectbox"] .react-aria-ComboBox > [role="group"]:focus-within,
+          [data-testid="stMain"] [data-testid="stSelectbox"] div[data-baseweb="select"] > div:first-child:focus-within,
           [data-testid="stMain"] [data-baseweb="input"]:focus-within {{
             border-color: var(--takal-mint) !important;
             box-shadow: 0 0 0 3px rgba(37, 201, 152, 0.16) !important;
@@ -1049,15 +1162,18 @@ def apply_styles() -> None:
             overflow: hidden;
             background: var(--takal-white) !important;
           }}
+
           [data-testid="stExpander"] summary {{
             background: #F3F8F5 !important;
             color: var(--takal-text) !important;
             font-weight: 600 !important;
             transition: background-color 200ms ease !important;
           }}
+
           [data-testid="stExpander"] summary:hover {{
             background: #E7F1EC !important;
           }}
+
           [data-testid="stExpander"] summary * {{
             color: var(--takal-text) !important;
           }}
@@ -1072,10 +1188,12 @@ def apply_styles() -> None:
             letter-spacing: 0.05em;
             border-bottom: 1px solid #1B473A !important;
           }}
+
           [data-testid="stTable"] tbody td,
           [data-testid="stMarkdownContainer"] table tbody td {{
             color: var(--takal-text) !important;
           }}
+
           [data-testid="stTable"] table,
           [data-testid="stMarkdownContainer"] table {{
             border-collapse: collapse;
@@ -1114,6 +1232,7 @@ def apply_styles() -> None:
             text-transform: uppercase !important;
             letter-spacing: 0.06em !important;
           }}
+
           div[data-testid="stMetric"] div[data-testid="stMetricValue"] {{
             font-family: 'Plus Jakarta Sans', sans-serif !important;
             color: var(--takal-text) !important;
@@ -1128,10 +1247,12 @@ def apply_styles() -> None:
             text-transform: uppercase;
             letter-spacing: 0.06em;
           }}
+
           /* Greek letters must stay lowercase: uppercase turns α into a Latin-looking "A" */
           .technical-card-label .no-upper {{
             text-transform: none;
           }}
+
           .technical-card-value {{
             font-size: 1.65rem;
             font-weight: 700;
@@ -1139,6 +1260,7 @@ def apply_styles() -> None:
             margin: 0.35rem 0 0.15rem 0;
             letter-spacing: -0.02em;
           }}
+
           .technical-card-detail {{
             color: var(--takal-muted);
             font-size: 0.8rem;
@@ -1152,18 +1274,21 @@ def apply_styles() -> None:
             transform: translateY(-3px);
             box-shadow: 0 14px 30px rgba(10, 35, 28, 0.20) !important;
           }}
+
           .technical-card:hover .technical-card-label,
           .technical-card:focus-within .technical-card-label,
           div[data-testid="stMetric"]:hover label,
           div[data-testid="stMetric"]:hover label * {{
             color: #BFE3D6 !important;
           }}
+
           .technical-card:hover .technical-card-value,
           .technical-card:focus-within .technical-card-value,
           div[data-testid="stMetric"]:hover div[data-testid="stMetricValue"],
           div[data-testid="stMetric"]:hover div[data-testid="stMetricValue"] * {{
             color: #FFFFFF !important;
           }}
+
           .technical-card:hover .technical-card-detail,
           .technical-card:focus-within .technical-card-detail {{
             color: #A8D3C3 !important;
@@ -1180,15 +1305,85 @@ def apply_styles() -> None:
             }}
           }}
 
+          /* --- READING PANEL: plain-language read-out under a table --- */
           .result-panel {{
-            border-left: 4px solid var(--takal-forest-pill) !important;
-            background: var(--takal-white) !important;
+            background: var(--takal-white);
             border: 1px solid var(--takal-border);
             border-radius: 16px;
-            padding: 1.3rem 1.5rem;
+            padding: 1.35rem 1.6rem 1.4rem 1.6rem;
             margin-top: 1.2rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            margin-bottom: 1.6rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
             color: var(--takal-text);
+          }}
+
+          .result-panel .reading-head {{
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            margin-bottom: 0.85rem;
+          }}
+
+          .result-panel .reading-dot {{
+            flex: 0 0 8px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--takal-mint-text);
+          }}
+
+          .result-panel .reading-title {{
+            font-size: 1.02rem;
+            font-weight: 700;
+            letter-spacing: -0.015em;
+            line-height: 1.3;
+            color: var(--takal-text);
+          }}
+
+          .result-panel ul.reading-list {{
+            list-style: none;
+            margin: 0;
+            padding: 0;
+          }}
+
+          .result-panel ul.reading-list li {{
+            margin: 0;
+            padding: 0.8rem 0;
+            border-top: 1px solid var(--takal-border);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #2F4A41;
+          }}
+
+          .result-panel .reading-fig {{
+            color: var(--takal-text);
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+          }}
+
+          .result-panel .reading-note {{
+            margin-top: 0.5rem;
+            padding: 0.85rem 1.05rem;
+            background: #F3F8F5;
+            border-radius: 12px;
+          }}
+
+          .result-panel .reading-note-label {{
+            display: block;
+            margin-bottom: 0.3rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--takal-mint-text);
+          }}
+
+          .result-panel .reading-note p {{
+            margin: 0;
+            font-size: 0.86rem;
+            line-height: 1.55;
+            color: #4A6158;
           }}
 
           div[data-testid="stDataFrame"] {{
@@ -1217,12 +1412,14 @@ def apply_styles() -> None:
             margin-bottom: 1.2rem;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
           }}
+
           table.weekly-table {{
             width: 100%;
             border-collapse: collapse;
             margin: 0 !important;
             border: none !important;
           }}
+
           table.weekly-table th {{
             background: #0D2E24;
             color: #FFFFFF;
@@ -1234,6 +1431,7 @@ def apply_styles() -> None:
             border: 1px solid #1B473A !important;
             border-top: none !important;
           }}
+
           table.weekly-table td {{
             padding: 0.95rem 1.3rem;
             font-size: 0.92rem;
@@ -1243,24 +1441,29 @@ def apply_styles() -> None:
             border: 1px solid var(--takal-border) !important;
             font-variant-numeric: tabular-nums;
           }}
+
           table.weekly-table tbody tr:hover {{
             background-color: #F1F7F4;
           }}
+
           table.weekly-table th:first-child,
           table.weekly-table td:first-child {{ border-left: none !important; }}
           table.weekly-table th:last-child,
           table.weekly-table td:last-child {{ border-right: none !important; }}
           table.weekly-table tbody tr:last-child td {{ border-bottom: none !important; }}
+
           table.weekly-table th.col-left,
           table.weekly-table td.col-left {{ text-align: left !important; }}
           table.weekly-table th.col-center,
           table.weekly-table td.col-center {{ text-align: center !important; }}
           table.weekly-table th.col-right,
           table.weekly-table td.col-right {{ text-align: right !important; }}
+
           table.weekly-table td.col-label {{
             font-weight: 600;
             color: #0A231C;
           }}
+
           table.weekly-table td.effect-up {{ color: #0B8561 !important; font-weight: 600; }}
           table.weekly-table td.effect-down {{ color: #0EA5E9 !important; font-weight: 600; }}
           
@@ -1268,13 +1471,72 @@ def apply_styles() -> None:
             color: #0A231C;
             font-weight: 600;
           }}
+
           .weekly-actual {{
             color: #10B981;
             font-weight: 600;
           }}
+
           .weekly-not-yet {{
             color: var(--takal-muted);
             font-style: italic;
+          }}
+
+          .weekly-diff-up {{ color: #B45309; font-weight: 600; }}
+          .weekly-diff-down {{ color: #0369A1; font-weight: 600; }}
+          .weekly-diff-flat {{ color: var(--takal-muted); font-weight: 600; }}
+          table.weekly-table th .th-sub {{
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 500;
+            opacity: 0.8;
+            letter-spacing: 0;
+            text-transform: none;
+          }}
+
+          /* --- SIDEBAR ACTION BUTTONS (e.g. Export report): always readable, never faded --- */
+          [data-testid="stSidebar"] [data-testid="stDownloadButton"] button,
+          [data-testid="stSidebar"] :not(.st-key-home_reset) > [data-testid="stButton"] button {{
+            width: 100% !important;
+            min-height: 44px !important;
+            background: rgba(255, 255, 255, 0.08) !important;
+            border: 1px solid var(--takal-forest-border) !important;
+            border-radius: 14px !important;
+            color: #FFFFFF !important;
+            font-weight: 600 !important;
+            opacity: 1 !important;
+            box-shadow: none !important;
+            cursor: pointer !important;
+            transition: background-color 200ms ease, border-color 200ms ease, box-shadow 200ms ease !important;
+          }}
+
+          [data-testid="stSidebar"] [data-testid="stDownloadButton"] button:hover,
+          [data-testid="stSidebar"] :not(.st-key-home_reset) > [data-testid="stButton"] button:hover {{
+            background: #174537 !important;
+            border-color: #276250 !important;
+            color: #FFFFFF !important;
+            opacity: 1 !important;
+          }}
+
+          [data-testid="stSidebar"] [data-testid="stDownloadButton"] button:focus-visible,
+          [data-testid="stSidebar"] :not(.st-key-home_reset) > [data-testid="stButton"] button:focus-visible {{
+            border-color: var(--takal-mint) !important;
+            box-shadow: 0 0 0 3px rgba(37, 201, 152, 0.18) !important;
+            outline: none !important;
+          }}
+
+          [data-testid="stSidebar"] [data-testid="stDownloadButton"] button:active,
+          [data-testid="stSidebar"] :not(.st-key-home_reset) > [data-testid="stButton"] button:active {{
+            background: #11362B !important;
+            color: #FFFFFF !important;
+          }}
+
+          /* Label and icon always follow the button's text color, in every state */
+          [data-testid="stSidebar"] [data-testid="stDownloadButton"] button *,
+          [data-testid="stSidebar"] :not(.st-key-home_reset) > [data-testid="stButton"] button * {{
+            color: inherit !important;
+            fill: currentColor !important;
+            opacity: 1 !important;
           }}
 
           /* --- SIDEBAR HIDE / SHOW BUTTON: visible on the dark sidebar --- */
@@ -1283,6 +1545,7 @@ def apply_styles() -> None:
             opacity: 1 !important;
             visibility: visible !important;
           }}
+
           [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] button,
           [data-testid="stSidebar"] [data-testid="stSidebarHeader"] button {{
             color: #CFE3DA !important;
@@ -1292,15 +1555,18 @@ def apply_styles() -> None:
             opacity: 1 !important;
             transition: background-color 0.2s ease !important;
           }}
+
           [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] button:hover,
           [data-testid="stSidebar"] [data-testid="stSidebarHeader"] button:hover {{
             background: rgba(255, 255, 255, 0.20) !important;
           }}
+
           [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] *,
           [data-testid="stSidebar"] [data-testid="stSidebarHeader"] button * {{
             color: #CFE3DA !important;
             fill: #CFE3DA !important;
           }}
+
           /* Re-open button shown in the main header while the sidebar is collapsed */
           [data-testid="stExpandSidebarButton"],
           [data-testid="stExpandSidebarButton"] *,
@@ -1315,16 +1581,13 @@ def apply_styles() -> None:
               [data-testid="stHorizontalBlock"]:has(.technical-card)) {{
             align-items: stretch !important;
           }}
+
           :is([data-testid="stHorizontalBlock"]:has(.metric-card),
-              [data-testid="stHorizontalBlock"]:has(.technical-card)) > :is([data-testid="stColumn"], [data-testid="column"]) {{
-            display: flex !important;
-            flex-direction: column !important;
-          }}
+              [data-testid="stHorizontalBlock"]:has(.technical-card)) > :is([data-testid="stColumn"], [data-testid="column"]),
           :is([data-testid="stHorizontalBlock"]:has(.metric-card),
-              [data-testid="stHorizontalBlock"]:has(.technical-card)) > :is([data-testid="stColumn"], [data-testid="column"]) > [data-testid="stVerticalBlock"] {{
-            flex: 1 1 auto !important;
-          }}
-          /* Pass the stretch down through Streamlit's wrapper elements to the card itself */
+              [data-testid="stHorizontalBlock"]:has(.technical-card)) > :is([data-testid="stColumn"], [data-testid="column"]) [data-testid="stVerticalBlockBorderWrapper"],
+          :is([data-testid="stHorizontalBlock"]:has(.metric-card),
+              [data-testid="stHorizontalBlock"]:has(.technical-card)) > :is([data-testid="stColumn"], [data-testid="column"]) [data-testid="stVerticalBlock"],
           :is([data-testid="stHorizontalBlock"]:has(.metric-card),
               [data-testid="stHorizontalBlock"]:has(.technical-card)) [data-testid="stElementContainer"],
           :is([data-testid="stHorizontalBlock"]:has(.metric-card),
@@ -1334,51 +1597,39 @@ def apply_styles() -> None:
             display: flex !important;
             flex-direction: column !important;
             flex: 1 1 auto !important;
+            height: 100% !important;
           }}
+
           .metric-card,
           .technical-card {{
-            flex: 1 1 auto;
+            flex: 1 1 auto !important;
+            height: 100% !important;
           }}
-          /* Overview cards: reserve two label lines so values and details line up across cards */
-          .metric-card {{
-            justify-content: flex-start;
-          }}
-          .metric-card-header {{
-            min-height: 3.4rem;
-          }}
-          .metric-card .metric-detail {{
-            margin-top: auto;
-          }}
+
           @media (max-width: 640px) {{
             .metric-card-header {{
               min-height: 0;
             }}
-          }}
-
-          /* Badge such as "+ ₱1.48" stays on one line; the label wraps instead */
-          .metric-badge {{
-            white-space: nowrap;
-          }}
-          .metric-header-right {{
-            flex-shrink: 0;
-          }}
-          .metric-label {{
-            min-width: 0;
+            .metric-detail {{
+              min-height: 0;
+            }}
           }}
 
           /* ================= RESPONSIVE LAYOUT ================= */
-
           /* Fluid headings: scale smoothly between phone and desktop */
           .page-heading {{
             font-size: clamp(1.7rem, 0.9rem + 3vw, 2.35rem) !important;
           }}
+
           .section-subheading,
           [data-testid="stMain"] h3 {{
             font-size: clamp(1.3rem, 0.8rem + 2vw, 1.9rem) !important;
           }}
+
           .metric-value {{
             font-size: clamp(1.5rem, 1rem + 1.4vw, 2.1rem);
           }}
+
           .technical-card-value {{
             font-size: clamp(1.3rem, 0.9rem + 1.2vw, 1.65rem);
             overflow-wrap: anywhere;
@@ -1396,6 +1647,8 @@ def apply_styles() -> None:
               display: none;
             }}
           }}
+
+          [role="tab"],
           button[role="tab"] {{
             flex-shrink: 0 !important;
             white-space: nowrap !important;
@@ -1412,6 +1665,7 @@ def apply_styles() -> None:
               flex-wrap: wrap !important;
               row-gap: 1rem !important;
             }}
+
             [data-testid="stHorizontalBlock"]:has(.metric-card) > [data-testid="stColumn"],
             [data-testid="stHorizontalBlock"]:has(.metric-card) > [data-testid="column"],
             [data-testid="stHorizontalBlock"]:has(.technical-card) > [data-testid="stColumn"],
@@ -1426,9 +1680,11 @@ def apply_styles() -> None:
             [data-testid="stAppViewContainer"] .main .block-container {{
               padding: 2.75rem 1.4rem 2.5rem 1.4rem !important;
             }}
+
             .page-intro {{
               margin-bottom: 1.4rem;
             }}
+
             .result-panel {{
               padding: 1.1rem 1.2rem;
             }}
@@ -1440,6 +1696,7 @@ def apply_styles() -> None:
             [data-testid="stAppViewContainer"] .main .block-container {{
               padding: 2.5rem 0.85rem 2rem 0.85rem !important;
             }}
+
             [data-testid="stHorizontalBlock"]:has(.metric-card) > [data-testid="stColumn"],
             [data-testid="stHorizontalBlock"]:has(.metric-card) > [data-testid="column"],
             [data-testid="stHorizontalBlock"]:has(.technical-card) > [data-testid="stColumn"],
@@ -1447,57 +1704,71 @@ def apply_styles() -> None:
               flex: 1 1 100% !important;
               min-width: 100% !important;
             }}
+
             .metric-card {{
               min-height: 0;
               padding: 1.1rem 1.2rem;
             }}
+
             .technical-card,
             div[data-testid="stMetric"] {{
               min-height: 0;
               padding: 1rem 1.15rem !important;
             }}
+
             /* Tighter tab-rule spacing on phones */
             [data-baseweb="tabs"] {{
               --tab-rule-gap-above: 0.65rem;
               --tab-rule-gap-below: 1.1rem;
             }}
+
             [role="tablist"] {{
-              padding: 4px !important;
+              padding: 4px 4px 0 4px !important;
             }}
+
+            [role="tab"],
             button[role="tab"] {{
               padding: 7px 14px !important;
             }}
+
+            [role="tab"] p,
+            [role="tab"] [data-testid="stMarkdownContainer"] p,
             button[role="tab"] p,
             button[role="tab"] [data-testid="stMarkdownContainer"] p {{
               font-size: 0.92rem !important;
             }}
+
             .st-key-chart_card_forecast {{
               padding: 0.9rem 0.5rem 0.6rem 0.5rem;
               border-radius: 16px;
             }}
+
             table.weekly-table th {{
               padding: 0.75rem 0.8rem;
               font-size: 0.74rem;
             }}
+
             table.weekly-table td {{
               padding: 0.7rem 0.8rem;
               font-size: 0.84rem;
             }}
+
             /* Smaller chart text so plots keep room on narrow screens */
             .js-plotly-plot .xtick text,
             .js-plotly-plot .ytick text,
             .js-plotly-plot .legend text {{
               font-size: 11px !important;
             }}
+
             .js-plotly-plot .g-xtitle text,
             .js-plotly-plot .g-ytitle text {{
               font-size: 12px !important;
             }}
+
             .js-plotly-plot .modebar-container {{
               display: none !important;
             }}
           }}
-
         </style>
         """,
         unsafe_allow_html=True,
@@ -1517,7 +1788,6 @@ def metric_card(
     safe_detail = html.escape(detail)
     safe_tooltip = html.escape(tooltip, quote=True)
     badge_html = f'<span class="metric-badge">{html.escape(badge)}</span>' if badge else ""
-
     st.markdown(
         f"""
         <section class="metric-card" aria-label="{safe_label}: {safe_value}">
@@ -1582,6 +1852,53 @@ def render_table(df, align=None, formats=None, label_columns=None, effect_column
     st.markdown(
         '<div class="weekly-table-wrap"><table class="weekly-table">'
         f"<thead><tr>{head}</tr></thead><tbody>{''.join(body)}</tbody></table></div>",
+        unsafe_allow_html=True,
+    )
+
+
+_HOW_PREFIX = "How to read this table:"
+
+# Figures worth emphasising: pesos (with optional sign and /kg), percentages, p-values, R².
+_FIGURE = re.compile(
+    r"[+\-−]?₱[\d,]+(?:\.\d+)?(?:/kg)?"
+    r"|\d+(?:\.\d+)?%"
+    r"|(?<=p = )\d*\.\d+"
+    r"|(?<=R² is )-?\d+\.\d+"
+)
+
+
+def _emphasize(text: str) -> str:
+    """Escape the text, then bold the figures in it."""
+    return _FIGURE.sub(
+        lambda m: f'<strong class="reading-fig">{m.group(0)}</strong>',
+        html.escape(text),
+    )
+
+
+def render_reading(title: str, lines: list[str]) -> None:
+    """Plain-language reading of a table, in the dashboard's result-panel style.
+
+    The first line is the "how to read" explanation and is shown as a footnote;
+    the remaining lines are findings computed from the numbers.
+    """
+    if not lines:
+        return
+    how, findings = lines[0], lines[1:]
+    if how.startswith(_HOW_PREFIX):
+        how = how[len(_HOW_PREFIX):].strip()
+        how = how[:1].upper() + how[1:]
+
+    items = "".join(f"<li>{_emphasize(line)}</li>" for line in findings)
+    findings_html = f'<ul class="reading-list">{items}</ul>' if findings else ""
+
+    st.markdown(
+        '<div class="result-panel">'
+        '<div class="reading-head"><span class="reading-dot" aria-hidden="true"></span>'
+        f'<span class="reading-title">{html.escape(title)}</span></div>'
+        f"{findings_html}"
+        '<div class="reading-note"><span class="reading-note-label">How to read</span>'
+        f"<p>{html.escape(how)}</p></div>"
+        "</div>",
         unsafe_allow_html=True,
     )
 
