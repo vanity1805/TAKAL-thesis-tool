@@ -91,6 +91,15 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str, hori
     st.session_state.setdefault("overview_from_date", earliest_data_date)
     st.session_state.setdefault("overview_to_date", latest_data_date)
 
+    # New weeks were added to the dataset: widen the filter to the new range so
+    # the latest week is not hidden behind an old "To" date kept by this session.
+    data_range = (earliest_data_date, latest_data_date)
+    if st.session_state.get("overview_data_range") != data_range:
+        st.session_state["overview_from_date"] = earliest_data_date
+        st.session_state["overview_to_date"] = latest_data_date
+        st.session_state["overview_page"] = 0
+        st.session_state["overview_data_range"] = data_range
+
     if not earliest_data_date <= st.session_state["overview_from_date"] <= latest_data_date:
         st.session_state["overview_from_date"] = earliest_data_date
     if not earliest_data_date <= st.session_state["overview_to_date"] <= latest_data_date:

@@ -51,7 +51,7 @@ def export_dialog(results: dict, results_stamp: float, active_model: str) -> Non
     st.markdown("**1. Choose what to include**")
     st.checkbox("Select all sections", key="export_select_all", on_change=_select_all_changed)
     for name in SECTION_ORDER:
-        st.checkbox(f"{name}  —  {SECTION_BLURBS[name]}", key=SECTION_KEYS[name], on_change=_section_changed)
+        st.checkbox(f"{name} - {SECTION_BLURBS[name]}", key=SECTION_KEYS[name], on_change=_section_changed)
     chosen = tuple(n for n in SECTION_ORDER if st.session_state[SECTION_KEYS[n]])
 
     st.markdown("**2. Choose the file type**")
@@ -68,6 +68,8 @@ def export_dialog(results: dict, results_stamp: float, active_model: str) -> Non
                                    index=horizon - 1, key="export_horizon")
         if "Explainability" in chosen:
             with columns[1]:
+                if st.session_state.get("export_week") not in weeks:
+                    st.session_state.pop("export_week", None)
                 local_week = st.selectbox("Week for the single-week explanation", weeks, index=len(weeks) - 1,
                                           format_func=format_week_date, key="export_week")
     model_name = MODEL_TITLES[active_model]

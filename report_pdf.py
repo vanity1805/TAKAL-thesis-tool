@@ -103,7 +103,7 @@ def _styles() -> dict[str, ParagraphStyle]:
 # ---- value formatting --------------------------------------------------------
 def fmt(kind: str, value) -> str:
     if value is None or (isinstance(value, float) and not np.isfinite(value)):
-        return "Not yet" if kind in ("peso", "peso_signed") else "—"
+        return "Not yet" if kind in ("peso", "peso_signed") else "-"
     if kind == "date":
         return value.strftime("%b %d, %Y").replace(" 0", " ") if isinstance(value, (date, datetime)) else str(value)
     if kind == "peso":
@@ -530,7 +530,7 @@ def build_pdf(report: dict, logo_path: str | None = None) -> bytes:
 
     story += [Spacer(1, 12), *_h2("How to read this report", st),
               Paragraph("Each section opens with a short summary of what it shows. Every table is followed by a "
-                        "green <b>Reading</b> box that explains, in plain words, what the numbers mean. "
+                        "<b>Reading</b> box that explains, in plain words, what the numbers mean. "
                         "Prices are in Philippine pesos (₱) per kilogram.", st["body"])]
     if report.get("data_note"):
         story += [Spacer(1, 6), *_h2("Data note", st), Paragraph(_esc(report["data_note"]), st["muted"])]

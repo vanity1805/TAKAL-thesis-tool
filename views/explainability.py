@@ -223,8 +223,12 @@ def render(shap_results: dict, weeks: list[str], active_model: str) -> None:
         render_chart(st.empty(), beeswarm_figure, "shap_beeswarm")
 
     st.markdown('<hr style="margin-bottom: 0.25rem; margin-top: 1rem; border: 0; border-top: 1px solid var(--takal-border);">', unsafe_allow_html=True)
-    st.markdown('<div class="section-subheading" style="margin-top: 0.5rem;">Local Feature Attribution — Single-Week SHAP Waterfall</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-subheading" style="margin-top: 0.5rem;">Local Feature Attribution - Single-Week SHAP Waterfall</div>', unsafe_allow_html=True)
 
+    # The test window moves forward when weeks are added, so a stored week can
+    # fall out of the list; drop it and fall back to the latest week.
+    if st.session_state.get("local_explanation_week") not in weeks:
+        st.session_state.pop("local_explanation_week", None)
     selected_week = st.selectbox(
         "Forecast week",
         weeks,
@@ -359,7 +363,7 @@ def render(shap_results: dict, weeks: list[str], active_model: str) -> None:
         )
 
     st.markdown('<hr style="margin-bottom: 0.25rem; margin-top: 1rem; border: 0; border-top: 1px solid var(--takal-border);">', unsafe_allow_html=True)
-    st.markdown('<div class="section-subheading" style="margin-top: 0.5rem;">SHAP Dependence Plot — Indicator Value vs. Price Contribution</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-subheading" style="margin-top: 0.5rem;">SHAP Dependence Plot - Indicator Value vs. Price Contribution</div>', unsafe_allow_html=True)
 
     with st.expander("How the dependence plot works and how to read it", expanded=False):
         st.markdown(

@@ -10,9 +10,9 @@ dashboard (`../app.py`) loads.
 `artifacts/results.json` with:
 
 - **forecast** — actual vs. multivariate vs. univariate prices for each of the
-  12 forecast horizons, all aligned to the same 66 held-out target weeks.
+  12 forecast horizons, all aligned to the same held-out target weeks (about 20% of the rows; the count is recorded in `meta.n_test`).
 - **metrics** — RMSE, MAE, MAPE, R² for each model and each horizon, plus an
-  overall row pooling all 12 × 66 errors.
+  overall row pooling all 12 × n_test errors.
 - **dm_test** — horizon-specific h-step Diebold-Mariano tests and an overall
   test of the per-week mean squared-error loss differential.
 - **shap** — horizon-specific global bar (mean|SHAP|), beeswarm, per-week local
@@ -28,7 +28,7 @@ dashboard (`../app.py`) loads.
 - **Preprocessing:** Min-Max normalization fit on the training set only; each
   sliding lookback window predicts the next 12 prices. Training and validation
   targets stay before the test split, with an 11-window purge between them.
-- **Split:** 80/20 chronological (no shuffle); ~66-week hold-out test set.
+- **Split:** 80/20 chronological (no shuffle); hold-out test set of the last 20% of rows (it grows as weeks are added).
 - **Lookback L:** lightly tuned over `config.L_GRID` (chosen by lowest validation
   loss); the chosen value and the full grid are recorded in the results file
   (`meta.lookback_L`, `meta.lookback_grid_val_loss`). L is kept constant across
@@ -40,8 +40,8 @@ dashboard (`../app.py`) loads.
 
 ## Data handling
 
-- `rice_import_mt`: 9 trailing weeks are **forward-filled** with the last observed
-  value (5049 MT), per the thesis's stated imputation method.
+- `rice_import_mt`: the trailing weeks without a published value (at most `MAX_TRAILING_FFILL_WEEKS`) are **forward-filled** with the last observed
+  value, per the thesis's stated imputation method. The counts are recomputed every run and recorded in `meta.data_note`.
 - All six multivariate feature columns must be populated; the pipeline raises a
   clear error otherwise.
 
@@ -69,7 +69,7 @@ modification time).
 
 ## Adding new weeks of data
 
-The pipeline is size-agnostic: nothing depends on the current 330 rows.
+The pipeline is size-agnostic: nothing depends on the number of rows.
 
 1. Append the new weekly rows to the `Clean Table` sheet of `THESIS-MASTER_DATASET.xlsx`
    (same column names, one row per week, dates 7 days apart).

@@ -9,6 +9,7 @@ This module does not import Streamlit.
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 
 import numpy as np
@@ -194,7 +195,7 @@ def _benchmark_section(results: dict, model: str) -> dict:
                 "p-value": float(row["p_value"]),
                 "Alpha": float(row["alpha"]),
                 "Significant?": "Yes" if significant else "No",
-                "Lower-error model": MODEL_TITLES.get(row.get("better"), "—") if significant else "No clear winner",
+                "Lower-error model": MODEL_TITLES.get(row.get("better"), "-") if significant else "No clear winner",
                 "Decision": row["decision"],
             }
         )
@@ -372,6 +373,38 @@ def _friendly_note(note: str) -> str:
     return note
 
 
+def _plain(text: str) -> str:
+    """Replace em dashes: "-" in titles and placeholders, "," inside sentences."""
+    if "\u2014" not in text:
+        return text
+    if text.strip() == "\u2014":
+        return "-"
+    if len(text.split()) >= 5:
+        text = re.sub(r"\s*\u2014\s*", ", ", text)
+    else:
+        text = re.sub(r"\s*\u2014\s*", " - ", text)
+    return text.replace("\u2014", "-")
+
+
+def _scrub(obj):
+    """Apply _plain to every string value in the report structure."""
+    if isinstance(obj, str):
+        return _plain(obj)
+    if isinstance(obj, dict):
+        return {k: _scrub(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_scrub(v) for v in obj]
+    if isinstance(obj, tuple):
+        return tuple(_scrub(v) for v in obj)
+    if isinstance(obj, pd.DataFrame):
+        out = obj.copy()
+        for col in out.columns:
+            if out[col].dtype == object:
+                out[col] = out[col].map(lambda v: _scrub(v) if isinstance(v, str) else v)
+        return out
+    return obj
+
+
 def build_report(
     results: dict,
     sections: list[str] | tuple[str, ...],
@@ -406,11 +439,11 @@ def build_report(
         info.append(("Forecast distance", f"{horizon} weeks ahead"))
     if meta.get("data_range"):
         info.append(("Data covers", f"{_nice_date(meta['data_range'][0])} to {_nice_date(meta['data_range'][1])}"))
-    return {
+    return _scrub({
         "title": "TAKAL Rice Price Forecast Report",
         "subtitle": "Regular-milled rice · National Capital Region · Weekly retail price",
         "info": info,
         "sections": built,
         "glossary": GLOSSARY,
         "data_note": _friendly_note(meta.get("data_note", "")),
-    }
+    })
