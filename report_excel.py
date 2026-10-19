@@ -5,6 +5,9 @@ section (key figures, readings, tables, native charts), a separate sheet for the
 long weekly table (so its header can stay frozen), and a Glossary sheet. Numbers are
 stored as real numbers with number formats, so they can still be sorted and used in
 calculations.
+
+Colour is kept for the table headers and the charts. Everything else uses a
+neutral ink-on-white scheme with hairline rules.
 """
 
 from __future__ import annotations
@@ -16,17 +19,19 @@ from datetime import date
 import numpy as np
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, Reference
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.drawing.line import LineProperties
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from report_data import SECTION_BLURBS
 
-FOREST = "0D2B24"
-GREEN = "10B981"
-MINT = "E9F8F3"
-ZEBRA = "F5F8F6"
-BORDER = "D5E0DB"
-MUTED = "5F746D"
+FOREST = "0D2B24"   # table headers
+TEXT = "1B2220"    # body text
+MUTED = "5E6967"   # secondary text
+RULE = "D8DCDB"    # hairlines and outlines
+RULE_DARK = "8E9794"  # closing line of a table, emphasis rules
+PANEL = "F4F5F5"   # the only fill: reading boxes and summary rows
 FONT = "Calibri"
 
 FORMATS = {
@@ -42,8 +47,10 @@ FORMATS = {
     "int": "0",
 }
 
-thin = Side(style="thin", color=BORDER)
+thin = Side(style="thin", color=RULE)
+dark = Side(style="thin", color=RULE_DARK)
 BOX = Border(left=thin, right=thin, top=thin, bottom=thin)
+HAIR = Border(bottom=thin)
 
 
 def _font(**kw):
@@ -62,27 +69,34 @@ def _clean(value):
     return value
 
 
+def _align_for(kind: str) -> str:
+    """Every table column, header and cell, is centred so the tables read uniformly."""
+    return "center"
+
+
 def _banner(ws, title: str, subtitle: str, width: int) -> int:
+    """Sheet title: dark ink on white with a rule under it, no colour fill."""
     ws.sheet_view.showGridLines = False
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=width)
     cell = ws.cell(1, 1, title)
-    cell.font = _font(size=18, bold=True, color="FFFFFF")
-    cell.fill = _fill(FOREST)
+    cell.font = _font(size=18, bold=True, color=TEXT)
     cell.alignment = Alignment(vertical="center", indent=1)
     ws.row_dimensions[1].height = 34
     for c in range(1, width + 1):
-        ws.cell(1, c).fill = _fill(FOREST)
-        ws.cell(2, c).fill = _fill(GREEN)
+        ws.cell(1, c).border = Border(bottom=Side(style="medium", color=TEXT))
     ws.row_dimensions[2].height = 4
+    if not subtitle:  # no subtitle line: just a small gap before the content
+        ws.row_dimensions[3].height = 10
+        return 4
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=width)
     sub = ws.cell(3, 1, subtitle)
-    sub.font = _font(size=10, color=MUTED, italic=True)
+    sub.font = _font(size=10, color=MUTED)
     sub.alignment = Alignment(wrap_text=True, vertical="top", indent=1)
     ws.row_dimensions[3].height = max(18, 15 * math.ceil(len(subtitle) / (width * 14)))
     return 5
 
 
-def _paragraph(ws, row: int, text: str, width: int, *, bold=False, italic=False, color="0F1F1C",
+def _paragraph(ws, row: int, text: str, width: int, *, bold=False, italic=False, color=TEXT,
                fill: str | None = None, size=10, chars_per_col=14) -> int:
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=width)
     cell = ws.cell(row, 1, text)
@@ -99,11 +113,11 @@ def _paragraph(ws, row: int, text: str, width: int, *, bold=False, italic=False,
 def _heading(ws, row: int, text: str, width: int) -> int:
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=width)
     cell = ws.cell(row, 1, text)
-    cell.font = _font(size=13, bold=True, color=FOREST)
+    cell.font = _font(size=12.5, bold=True, color=TEXT)
     cell.alignment = Alignment(vertical="center", indent=1)
     ws.row_dimensions[row].height = 24
     for c in range(1, width + 1):
-        ws.cell(row, c).border = Border(bottom=Side(style="medium", color=GREEN))
+        ws.cell(row, c).border = Border(bottom=dark)
     return row + 1
 
 
@@ -114,8 +128,8 @@ def _cards(ws, row: int, items: list, width: int) -> int:
         c1 = c0 + span - 1 if i < len(items) - 1 else width
         for offset, (text, font) in enumerate((
             (label, _font(size=9, color=MUTED)),
-            (value, _font(size=15, bold=True, color=FOREST)),
-            (detail, _font(size=8.5, color=MUTED, italic=True)),
+            (value, _font(size=15, bold=True, color=TEXT)),
+            (detail, _font(size=8.5, color=MUTED)),
         )):
             ws.merge_cells(start_row=row + offset, start_column=c0, end_row=row + offset, end_column=c1)
             cell = ws.cell(row + offset, c0, text)
@@ -125,7 +139,7 @@ def _cards(ws, row: int, items: list, width: int) -> int:
                 ws.cell(row + offset, c).fill = _fill("FFFFFF")
                 ws.cell(row + offset, c).border = Border(
                     left=thin if c == c0 else None, right=thin if c == c1 else None,
-                    top=Side(style="medium", color=GREEN) if offset == 0 else None,
+                    top=thin if offset == 0 else None,
                     bottom=thin if offset == 2 else None,
                 )
     ws.row_dimensions[row].height = 30
@@ -145,11 +159,14 @@ def _write_table(ws, row: int, block: dict, width: int, col_widths: dict[int, fl
         cell = ws.cell(row, j, column)
         cell.font = _font(size=10, bold=True, color="FFFFFF")
         cell.fill = _fill(FOREST)
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.border = BOX
+        horizontal = _align_for(kinds[column])
+        cell.alignment = Alignment(horizontal=horizontal, vertical="center", wrap_text=True,
+                                   indent=1 if horizontal != "center" else 0)
+        cell.border = Border(left=Side(style="thin", color="1B473A"), right=Side(style="thin", color="1B473A"))
         col_widths[j] = max(col_widths.get(j, 10), min(40, len(str(column)) + 4))
     ws.row_dimensions[row].height = 32
     first = row + 1
+    last = first + len(df) - 1
     for i in range(len(df)):
         r = first + i
         overall = str(df.iloc[i, 0]) == "Overall"
@@ -160,15 +177,19 @@ def _write_table(ws, row: int, block: dict, width: int, col_widths: dict[int, fl
             if kind == "date" and hasattr(raw, "year"):
                 value = date(raw.year, raw.month, raw.day)
             cell = ws.cell(r, j, value if value is not None else "Not yet")
-            cell.border = BOX
-            cell.font = _font(size=10, bold=overall)
+            # hairline between rows, a darker line to close the table, a rule above the summary row
+            cell.border = Border(
+                bottom=dark if i == len(df) - 1 else thin,
+                top=dark if overall else None,
+            )
+            cell.font = _font(size=10, bold=overall, color=TEXT)
             if kind in FORMATS and value is not None:
                 cell.number_format = FORMATS[kind]
-            cell.alignment = Alignment(horizontal="left" if kind in ("text",) else "center", vertical="center", wrap_text=kind in ("text", "effect"))
-            if i % 2:
-                cell.fill = _fill(ZEBRA)
+            horizontal = _align_for(kind)
+            cell.alignment = Alignment(horizontal=horizontal, vertical="center", wrap_text=kind in ("text", "effect"),
+                                       indent=1 if horizontal != "center" else 0)
             if overall:
-                cell.fill = _fill(MINT)
+                cell.fill = _fill(PANEL)
             if kind == "peso_signed" and isinstance(value, float):
                 cell.font = _font(size=10, bold=True, color="B45309" if value > 0.005 else "0369A1" if value < -0.005 else MUTED)
             if kind == "effect":
@@ -181,16 +202,36 @@ def _write_table(ws, row: int, block: dict, width: int, col_widths: dict[int, fl
     return first + len(df) + 1, header_row, first
 
 
+def _outline(ws, r0: int, r1: int, width: int) -> None:
+    """Draw a thin outline around rows r0..r1 across the first ``width`` columns."""
+    for r in range(r0, r1 + 1):
+        for c in range(1, width + 1):
+            ws.cell(r, c).border = Border(
+                left=thin if c == 1 else None, right=thin if c == width else None,
+                top=thin if r == r0 else None, bottom=thin if r == r1 else None,
+            )
+
+
 def _reading(ws, row: int, title: str, lines: list[str], width: int) -> int:
-    row = _paragraph(ws, row, title, width, bold=True, color=FOREST, fill=MINT, size=10.5)
+    """A light-gray outlined box: neutral, with no colour accent."""
+    start = row
+    row = _paragraph(ws, row, title, width, bold=True, color=TEXT, fill=PANEL, size=10.5)
     for i, line in enumerate(lines):
-        row = _paragraph(ws, row, line, width, italic=(i == 0), color=MUTED if i == 0 else "0F1F1C", fill=MINT, size=10)
+        row = _paragraph(ws, row, line, width, italic=(i == 0), color=MUTED if i == 0 else TEXT, fill=PANEL, size=10)
+    _outline(ws, start, row - 1, width)
     return row + 1
 
 
 def _apply_widths(ws, col_widths: dict[int, float], width: int) -> None:
     for j in range(1, width + 1):
         ws.column_dimensions[get_column_letter(j)].width = max(col_widths.get(j, 14), 22)
+
+
+def _soften(chart) -> None:
+    """Light-gray gridlines so the data, not the grid, carries the chart."""
+    grid = getattr(chart.y_axis, "majorGridlines", None)
+    if grid is not None:
+        grid.spPr = GraphicalProperties(ln=LineProperties(solidFill="E3E6E5"))
 
 
 def _sheet_name(base: str, taken: set[str]) -> str:
@@ -273,6 +314,7 @@ def build_excel(report: dict) -> bytes:
                 for s in chart.series:
                     s.smooth = False
                     s.marker.symbol = "none"
+                _soften(chart)
                 ws.add_chart(chart, f"A{row}")
                 row += 19
                 row = _paragraph(ws, row, "The green line is the forecast and the black line is the actual price.", width, italic=True, color=MUTED, size=9)
@@ -291,6 +333,7 @@ def build_excel(report: dict) -> bytes:
                 chart.y_axis.delete = False
                 chart.series[0].graphicalProperties.solidFill = "B45309"
                 chart.series[0].invertIfNegative = False
+                _soften(chart)
                 ws.add_chart(chart, f"A{row}")
                 row += 17
                 row = _paragraph(ws, row, block["caption"], width, italic=True, color=MUTED, size=9)
@@ -308,6 +351,7 @@ def build_excel(report: dict) -> bytes:
                 chart.x_axis.delete = False
                 chart.y_axis.delete = False
                 chart.series[0].graphicalProperties.solidFill = "0EA5E9"
+                _soften(chart)
                 ws.add_chart(chart, f"A{row}")
                 row += 17
                 row = _paragraph(ws, row, block["caption"], width, italic=True, color=MUTED, size=9)
@@ -326,15 +370,16 @@ def build_excel(report: dict) -> bytes:
         cell = gl.cell(row, j, text)
         cell.font = _font(bold=True, color="FFFFFF")
         cell.fill = _fill(FOREST)
-        cell.border = BOX
+        cell.alignment = Alignment(vertical="center", indent=1)
+        cell.border = Border(left=Side(style="thin", color="1B473A"), right=Side(style="thin", color="1B473A"))
+    gl.row_dimensions[row].height = 24
+    total = len(report["glossary"])
     for i, (term, meaning) in enumerate(report["glossary"], start=1):
         a, b = gl.cell(row + i, 1, term), gl.cell(row + i, 2, meaning)
-        a.font, b.font = _font(bold=True), _font()
+        a.font, b.font = _font(bold=True, color=TEXT), _font(color=TEXT)
         for c in (a, b):
-            c.border = BOX
-            c.alignment = Alignment(wrap_text=True, vertical="top")
-            if i % 2:
-                c.fill = _fill(ZEBRA)
+            c.border = Border(bottom=dark if i == total else thin)
+            c.alignment = Alignment(wrap_text=True, vertical="top", indent=1)
         gl.row_dimensions[row + i].height = max(18, 15 * math.ceil(len(meaning) / 95))
     gl.column_dimensions["A"].width = 28
     gl.column_dimensions["B"].width = 100
@@ -342,13 +387,13 @@ def build_excel(report: dict) -> bytes:
 
     # ---- read me ----
     rm = readme
-    row = _banner(rm, report["title"], report["subtitle"], 3)
+    row = _banner(rm, report["title"], "", 3)  # the title stands alone, no subtitle line
     for key, value in report["info"]:
-        rm.cell(row, 1, key).font = _font(bold=True)
+        rm.cell(row, 1, key).font = _font(bold=True, color=MUTED)
         rm.merge_cells(start_row=row, start_column=2, end_row=row, end_column=3)
-        rm.cell(row, 2, value).font = _font()
+        rm.cell(row, 2, value).font = _font(color=TEXT)
         rm.cell(row, 2).alignment = Alignment(wrap_text=True, vertical="top")
-        rm.cell(row, 1).alignment = Alignment(vertical="top")
+        rm.cell(row, 1).alignment = Alignment(vertical="top", indent=1)
         rm.row_dimensions[row].height = max(18, 15 * math.ceil(len(value) / 70))
         for c in (1, 2, 3):
             rm.cell(row, c).border = Border(bottom=thin)
@@ -362,8 +407,10 @@ def build_excel(report: dict) -> bytes:
         rm.merge_cells(start_row=row, start_column=2, end_row=row, end_column=3)
         rm.cell(row, 2, blurb).font = _font(color=MUTED)
         rm.cell(row, 2).alignment = Alignment(wrap_text=True, vertical="top")
-        rm.cell(row, 1).alignment = Alignment(wrap_text=True, vertical="top")
+        rm.cell(row, 1).alignment = Alignment(wrap_text=True, vertical="top", indent=1)
         rm.row_dimensions[row].height = max(18, 15 * math.ceil(len(blurb) / 70))
+        for c in (1, 2, 3):
+            rm.cell(row, c).border = Border(bottom=thin)
         row += 1
     row += 1
     row = _heading(rm, row, "How to read this workbook", 3)
@@ -386,6 +433,11 @@ def build_excel(report: dict) -> bytes:
         sheet.page_setup.fitToWidth = 1
         sheet.page_setup.fitToHeight = 0
         sheet.sheet_properties.pageSetUpPr.fitToPage = True
+        sheet.sheet_properties.tabColor = RULE_DARK
+        sheet.oddFooter.left.text = "TAKAL · Rice Price Forecast Report"
+        sheet.oddFooter.left.size = 8
+        sheet.oddFooter.right.text = "Page &P of &N"
+        sheet.oddFooter.right.size = 8
 
     buffer = io.BytesIO()
     wb.save(buffer)
