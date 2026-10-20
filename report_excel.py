@@ -19,6 +19,7 @@ from datetime import date
 import numpy as np
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, Reference
+from openpyxl.chart.layout import Layout, ManualLayout
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.drawing.line import LineProperties
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -76,56 +77,60 @@ def _align_for(kind: str) -> str:
 
 def _banner(ws, title: str, subtitle: str, width: int) -> int:
     """Sheet title: dark ink on white with a rule under it, no colour fill."""
+    effective_width = max(width, 8)
     ws.sheet_view.showGridLines = False
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=width)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=effective_width)
     cell = ws.cell(1, 1, title)
     cell.font = _font(size=18, bold=True, color=TEXT)
     cell.alignment = Alignment(vertical="center", indent=1)
     ws.row_dimensions[1].height = 34
-    for c in range(1, width + 1):
+    for c in range(1, effective_width + 1):
         ws.cell(1, c).border = Border(bottom=Side(style="medium", color=TEXT))
     ws.row_dimensions[2].height = 4
-    if not subtitle:  # no subtitle line: just a small gap before the content
+    if not subtitle:
         ws.row_dimensions[3].height = 10
         return 4
-    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=width)
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=effective_width)
     sub = ws.cell(3, 1, subtitle)
     sub.font = _font(size=10, color=MUTED)
     sub.alignment = Alignment(wrap_text=True, vertical="top", indent=1)
-    ws.row_dimensions[3].height = max(18, 15 * math.ceil(len(subtitle) / (width * 14)))
+    ws.row_dimensions[3].height = max(18, 15 * math.ceil(len(subtitle) / (effective_width * 14)))
     return 5
 
 
 def _paragraph(ws, row: int, text: str, width: int, *, bold=False, italic=False, color=TEXT,
                fill: str | None = None, size=10, chars_per_col=14) -> int:
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=width)
+    effective_width = max(width, 8)
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=effective_width)
     cell = ws.cell(row, 1, text)
     cell.font = _font(size=size, bold=bold, italic=italic, color=color)
-    cell.alignment = Alignment(wrap_text=True, vertical="top", indent=1)
+    cell.alignment = Alignment(wrap_text=True, vertical="center", indent=1)
     if fill:
-        for c in range(1, width + 1):
+        for c in range(1, effective_width + 1):
             ws.cell(row, c).fill = _fill(fill)
-    lines = max(1, math.ceil(len(text) / max(20, width * chars_per_col)))
-    ws.row_dimensions[row].height = max(18, 14.5 * lines + 4)
+    lines = max(1, math.ceil(len(text) / max(25, effective_width * chars_per_col)))
+    ws.row_dimensions[row].height = max(18, 15 * lines + 4)
     return row + 1
 
 
 def _heading(ws, row: int, text: str, width: int) -> int:
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=width)
+    effective_width = max(width, 8)
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=effective_width)
     cell = ws.cell(row, 1, text)
     cell.font = _font(size=12.5, bold=True, color=TEXT)
     cell.alignment = Alignment(vertical="center", indent=1)
     ws.row_dimensions[row].height = 24
-    for c in range(1, width + 1):
+    for c in range(1, effective_width + 1):
         ws.cell(row, c).border = Border(bottom=dark)
     return row + 1
 
 
 def _cards(ws, row: int, items: list, width: int) -> int:
-    span = max(1, width // len(items))
+    effective_width = max(width, 8)
+    span = max(1, effective_width // len(items))
     for i, (label, value, detail) in enumerate(items):
         c0 = 1 + i * span
-        c1 = c0 + span - 1 if i < len(items) - 1 else width
+        c1 = c0 + span - 1 if i < len(items) - 1 else effective_width
         for offset, (text, font) in enumerate((
             (label, _font(size=9, color=MUTED)),
             (value, _font(size=15, bold=True, color=TEXT)),
@@ -166,7 +171,6 @@ def _write_table(ws, row: int, block: dict, width: int, col_widths: dict[int, fl
         col_widths[j] = max(col_widths.get(j, 10), min(40, len(str(column)) + 4))
     ws.row_dimensions[row].height = 32
     first = row + 1
-    last = first + len(df) - 1
     for i in range(len(df)):
         r = first + i
         overall = str(df.iloc[i, 0]) == "Overall"
@@ -177,7 +181,6 @@ def _write_table(ws, row: int, block: dict, width: int, col_widths: dict[int, fl
             if kind == "date" and hasattr(raw, "year"):
                 value = date(raw.year, raw.month, raw.day)
             cell = ws.cell(r, j, value if value is not None else "Not yet")
-            # hairline between rows, a darker line to close the table, a rule above the summary row
             cell.border = Border(
                 bottom=dark if i == len(df) - 1 else thin,
                 top=dark if overall else None,
@@ -204,10 +207,11 @@ def _write_table(ws, row: int, block: dict, width: int, col_widths: dict[int, fl
 
 def _outline(ws, r0: int, r1: int, width: int) -> None:
     """Draw a thin outline around rows r0..r1 across the first ``width`` columns."""
+    effective_width = max(width, 8)
     for r in range(r0, r1 + 1):
-        for c in range(1, width + 1):
+        for c in range(1, effective_width + 1):
             ws.cell(r, c).border = Border(
-                left=thin if c == 1 else None, right=thin if c == width else None,
+                left=thin if c == 1 else None, right=thin if c == effective_width else None,
                 top=thin if r == r0 else None, bottom=thin if r == r1 else None,
             )
 
@@ -215,16 +219,18 @@ def _outline(ws, r0: int, r1: int, width: int) -> None:
 def _reading(ws, row: int, title: str, lines: list[str], width: int) -> int:
     """A light-gray outlined box: neutral, with no colour accent."""
     start = row
-    row = _paragraph(ws, row, title, width, bold=True, color=TEXT, fill=PANEL, size=10.5)
+    effective_width = max(width, 8)
+    row = _paragraph(ws, row, title, effective_width, bold=True, color=TEXT, fill=PANEL, size=10.5)
     for i, line in enumerate(lines):
-        row = _paragraph(ws, row, line, width, italic=(i == 0), color=MUTED if i == 0 else TEXT, fill=PANEL, size=10)
-    _outline(ws, start, row - 1, width)
+        row = _paragraph(ws, row, line, effective_width, italic=(i == 0), color=MUTED if i == 0 else TEXT, fill=PANEL, size=10)
+    _outline(ws, start, row - 1, effective_width)
     return row + 1
 
 
 def _apply_widths(ws, col_widths: dict[int, float], width: int) -> None:
-    for j in range(1, width + 1):
-        ws.column_dimensions[get_column_letter(j)].width = max(col_widths.get(j, 14), 22)
+    effective_width = max(width, 8)
+    for j in range(1, effective_width + 1):
+        ws.column_dimensions[get_column_letter(j)].width = max(col_widths.get(j, 14), 20)
 
 
 def _soften(chart) -> None:
@@ -251,13 +257,15 @@ def build_excel(report: dict) -> bytes:
         key = section["key"]
         ws = wb.create_sheet(_sheet_name(f"{number}. {key}", taken))
         tables = [b for b in section["blocks"] if b["type"] == "table"]
-        width = max([len(b["df"].columns) for b in tables] + [6])
+        width = max([len(b["df"].columns) for b in tables] + [8])
         col_widths: dict[int, float] = {}
         row = _banner(ws, f"Section {number} · {section['title']}", section["intro"], width)
         links.append((ws.title, f"Section {number} · {section['title']}", SECTION_BLURBS[key]))
 
         long_sheet = None
         data_ref = None
+        imp_ref = None
+
         for block in section["blocks"]:
             if block["type"] == "cards":
                 row = _cards(ws, row, block["items"], width)
@@ -266,17 +274,16 @@ def build_excel(report: dict) -> bytes:
                 row = _paragraph(ws, row, block["caption"], width, italic=True, color=MUTED, size=9)
                 row += 1
             elif block["type"] == "chart":
-                continue  # native charts are added after the tables so they can reference cells
+                continue
             elif block["type"] == "table" and block["id"] == "overview_weekly":
-                # long table lives on its own sheet with a frozen header
                 long_sheet = wb.create_sheet(_sheet_name(f"{number}. Weekly table", taken))
-                lw = len(block["df"].columns)
+                lw = max(len(block["df"].columns), 8)
                 lcw: dict[int, float] = {}
                 lrow = _banner(long_sheet, "Weekly table", f"{block['title']}. {block.get('note', '')}", lw)
                 lrow, header_row, first = _write_table(long_sheet, lrow, {**block, "title": "Weekly forecast versus actual", "note": ""}, lw, lcw)
                 long_sheet.freeze_panes = long_sheet.cell(first, 1)
-                long_sheet.auto_filter.ref = f"A{header_row}:{get_column_letter(lw)}{first + len(block['df']) - 1}"
-                for j in range(1, lw + 1):
+                long_sheet.auto_filter.ref = f"A{header_row}:{get_column_letter(len(block['df'].columns))}{first + len(block['df']) - 1}"
+                for j in range(1, len(block["df"].columns) + 1):
                     long_sheet.column_dimensions[get_column_letter(j)].width = max(lcw.get(j, 14), 18)
                 data_ref = (long_sheet, header_row, first, len(block["df"]))
                 links.append((long_sheet.title, f"Section {number} · Weekly table (all test weeks)", "Every week with forecast, actual and difference. Header stays in view while scrolling."))
@@ -286,8 +293,7 @@ def build_excel(report: dict) -> bytes:
             elif block["type"] == "table":
                 row, header_row, first = _write_table(ws, row, block, width, col_widths)
                 if block["id"] == "importance":
-                    data_ref_imp = (header_row, first, len(block["df"]))
-                    imp_ref = data_ref_imp
+                    imp_ref = (header_row, first, len(block["df"]))
                 row = _reading(ws, row, block["reading_title"], block["reading"], width)
 
         # ---- native charts ----
@@ -306,57 +312,75 @@ def build_excel(report: dict) -> bytes:
                 chart.x_axis.number_format = "mmm yyyy"
                 chart.x_axis.delete = False
                 chart.y_axis.delete = False
+                
+                # Inset plot area slightly from the left (x=0.08) so "PHP per kg" has breathing room
+                chart.layout = Layout(manualLayout=ManualLayout(x=0.08, y=0.10, w=0.88, h=0.78))
+
                 values = [v for v in [*block["actual"], *next(iter(block["series"].values()))] if v is not None and v == v]
-                chart.y_axis.scaling.min = math.floor(min(values)) - 1
-                chart.y_axis.scaling.max = math.ceil(max(values)) + 1
+                if values:
+                    chart.y_axis.scaling.min = math.floor(min(values)) - 1
+                    chart.y_axis.scaling.max = math.ceil(max(values)) + 1
+                    chart.y_axis.majorUnit = 2.0
+                chart.legend.legendPos = "tr"
                 chart.series[0].graphicalProperties.line.solidFill = "1BB385"
                 chart.series[1].graphicalProperties.line.solidFill = "000000"
                 for s in chart.series:
                     s.smooth = False
                     s.marker.symbol = "none"
                 _soften(chart)
+                row += 1
                 ws.add_chart(chart, f"A{row}")
                 row += 19
                 row = _paragraph(ws, row, "The green line is the forecast and the black line is the actual price.", width, italic=True, color=MUTED, size=9)
+
             elif block["kind"] == "difference" and data_ref:
                 sheet, header_row, first, n = data_ref
                 chart = BarChart()
                 chart.type = "col"
                 chart.title = block["title"]
                 chart.y_axis.title = "Forecast − Actual (PHP/kg)"
-                chart.height, chart.width = 7.5, 24
+                chart.height, chart.width = 8.5, 24
                 chart.add_data(Reference(sheet, min_col=4, min_row=header_row, max_row=first + n - 1), titles_from_data=True)
                 chart.set_categories(Reference(sheet, min_col=1, min_row=first, max_row=first + n - 1))
                 chart.legend = None
                 chart.x_axis.number_format = "mmm yyyy"
                 chart.x_axis.delete = False
                 chart.y_axis.delete = False
+                chart.x_axis.tickLblPos = "low"
+                
+                # Inset plot area (x=0.09) so "Forecast − Actual (PHP/kg)" sits cleanly beside the +₱/-₱ numbers
+                chart.layout = Layout(manualLayout=ManualLayout(x=0.09, y=0.10, w=0.87, h=0.78))
+
                 chart.series[0].graphicalProperties.solidFill = "B45309"
                 chart.series[0].invertIfNegative = False
                 _soften(chart)
+                row += 1
                 ws.add_chart(chart, f"A{row}")
-                row += 17
+                row += 19
                 row = _paragraph(ws, row, block["caption"], width, italic=True, color=MUTED, size=9)
-            elif block["kind"] == "importance":
+
+            elif block["kind"] == "importance" and imp_ref:
                 header_row, first, n = imp_ref
                 chart = BarChart()
                 chart.type = "bar"
-                chart.title = block["title"]
-                chart.height, chart.width = 7.5, 20
+                chart.title = f"{block['title']} (Average impact in PHP/kg)"
+                chart.height, chart.width = 8.5, 22
                 chart.add_data(Reference(ws, min_col=3, min_row=header_row, max_row=first + n - 1), titles_from_data=True)
                 chart.set_categories(Reference(ws, min_col=2, min_row=first, max_row=first + n - 1))
                 chart.legend = None
-                chart.y_axis.title = "Average impact (PHP per kg)"
+                chart.y_axis.title = None
                 chart.x_axis.scaling.orientation = "maxMin"
+                chart.y_axis.crosses = "max"
                 chart.x_axis.delete = False
                 chart.y_axis.delete = False
                 chart.series[0].graphicalProperties.solidFill = "0EA5E9"
                 _soften(chart)
+                row += 1
                 ws.add_chart(chart, f"A{row}")
-                row += 17
+                row += 19
                 row = _paragraph(ws, row, block["caption"], width, italic=True, color=MUTED, size=9)
+
         _apply_widths(ws, col_widths, width)
-        ws.column_dimensions["A"].width = max(col_widths.get(1, 14), 16)
         ws.page_setup.orientation = "landscape"
         ws.page_setup.fitToWidth = 1
         ws.page_setup.fitToHeight = 0
@@ -380,14 +404,14 @@ def build_excel(report: dict) -> bytes:
         for c in (a, b):
             c.border = Border(bottom=dark if i == total else thin)
             c.alignment = Alignment(wrap_text=True, vertical="top", indent=1)
-        gl.row_dimensions[row + i].height = max(18, 15 * math.ceil(len(meaning) / 95))
+        gl.row_dimensions[row + i].height = max(18, 15 * math.ceil(len(meaning) / 90))
     gl.column_dimensions["A"].width = 28
     gl.column_dimensions["B"].width = 100
     links.append(("Glossary", "Glossary", "Plain-language meaning of every term used in this workbook."))
 
     # ---- read me ----
     rm = readme
-    row = _banner(rm, report["title"], "", 3)  # the title stands alone, no subtitle line
+    row = _banner(rm, report["title"], "", 3)
     for key, value in report["info"]:
         rm.cell(row, 1, key).font = _font(bold=True, color=MUTED)
         rm.merge_cells(start_row=row, start_column=2, end_row=row, end_column=3)
