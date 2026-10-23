@@ -305,16 +305,17 @@ def build_excel(report: dict) -> bytes:
                 chart = LineChart()
                 chart.title = block["title"]
                 chart.y_axis.title = "PHP per kg"
-                chart.height, chart.width = 8.5, 24
+                # Extended chart width to 26 so date labels have full breathing room on the right
+                chart.height, chart.width = 8.5, 26
                 for col in (2, 3):
                     chart.add_data(Reference(sheet, min_col=col, min_row=header_row, max_row=first + n - 1), titles_from_data=True)
                 chart.set_categories(Reference(sheet, min_col=1, min_row=first, max_row=first + n - 1))
                 chart.x_axis.number_format = "mmm yyyy"
                 chart.x_axis.delete = False
                 chart.y_axis.delete = False
-                
-                # Inset plot area slightly from the left (x=0.08) so "PHP per kg" has breathing room
-                chart.layout = Layout(manualLayout=ManualLayout(x=0.08, y=0.10, w=0.88, h=0.78))
+
+                # x=0.024 pulls the left margin tight to remove extra whitespace; w=0.93 keeps April from clipping
+                chart.layout = Layout(manualLayout=ManualLayout(x=0.024, y=0.09, w=0.93, h=0.79))
 
                 values = [v for v in [*block["actual"], *next(iter(block["series"].values()))] if v is not None and v == v]
                 if values:
@@ -339,7 +340,7 @@ def build_excel(report: dict) -> bytes:
                 chart.type = "col"
                 chart.title = block["title"]
                 chart.y_axis.title = "Forecast − Actual (PHP/kg)"
-                chart.height, chart.width = 8.5, 24
+                chart.height, chart.width = 8.5, 26
                 chart.add_data(Reference(sheet, min_col=4, min_row=header_row, max_row=first + n - 1), titles_from_data=True)
                 chart.set_categories(Reference(sheet, min_col=1, min_row=first, max_row=first + n - 1))
                 chart.legend = None
@@ -347,9 +348,9 @@ def build_excel(report: dict) -> bytes:
                 chart.x_axis.delete = False
                 chart.y_axis.delete = False
                 chart.x_axis.tickLblPos = "low"
-                
-                # Inset plot area (x=0.09) so "Forecast − Actual (PHP/kg)" sits cleanly beside the +₱/-₱ numbers
-                chart.layout = Layout(manualLayout=ManualLayout(x=0.09, y=0.10, w=0.87, h=0.78))
+
+                # x=0.034 gives a small, clean space for the title beside ticks without wide empty whitespace
+                chart.layout = Layout(manualLayout=ManualLayout(x=0.034, y=0.09, w=0.92, h=0.79))
 
                 chart.series[0].graphicalProperties.solidFill = "B45309"
                 chart.series[0].invertIfNegative = False
