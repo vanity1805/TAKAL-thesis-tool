@@ -26,12 +26,28 @@ CLOSE_MISS_PHP = 1.0  # a forecast within this many PHP/kg is called "close"
 # --------------------------------------------------------------------------- #
 # Small formatting helpers
 # --------------------------------------------------------------------------- #
-def peso(value: float | None, signed: bool = False, decimals: int = 2) -> str:
+def _to_float_array(values: Sequence[float | str | None]) -> np.ndarray:
+    """Convert a sequence that may contain None, NaN, or '-' into a float64 array with np.nan."""
+    out = np.empty(len(values), dtype=float)
+    for idx, val in enumerate(values):
+        if val is None or (isinstance(val, str) and val.strip() in ("", "-", "—")):
+            out[idx] = np.nan
+            continue
+        try:
+            out[idx] = float(val)
+        except (TypeError, ValueError):
+            out[idx] = np.nan
+    return out
+
+
+def peso(value: float | str | None, signed: bool = False, decimals: int = 2) -> str:
     """₱1.23, or +₱1.23 / −₱1.23 when ``signed`` (true minus sign). Returns '-' when missing."""
+    if value is None or (isinstance(value, str) and value.strip() in ("", "-", "—")):
+        return "-"
     try:
-        if value is None or not np.isfinite(float(value)):
-            return "-"
         val = float(value)
+        if not np.isfinite(val):
+            return "-"
     except (TypeError, ValueError):
         return "-"
     text = f"₱{abs(val):,.{decimals}f}"
@@ -58,15 +74,15 @@ def plural(count: int, word: str) -> str:
 # --------------------------------------------------------------------------- #
 def overview_reading(
     weeks: Sequence[str],
-    forecast: Sequence[float],
-    actual: Sequence[float | None],
+    forecast: Sequence[float | str | None],
+    actual: Sequence[float | str | None],
     model: str,
     horizon: int,
 ) -> list[str]:
     """Explain the Difference (Forecasted − Actual) column for the weeks shown."""
     week_list = list(weeks)
-    f = np.asarray([float(v) if v is not None else np.nan for v in forecast], dtype=float)
-    a = np.asarray([float(v) if v is not None else np.nan for v in actual], dtype=float)
+    f = _to_float_array(forecast)
+    a = _to_float_array(actual)
     keep = np.isfinite(f) & np.isfinite(a)
     lines = [
         "Difference = Forecasted − Actual. A positive difference means the model "
@@ -86,7 +102,7 @@ def overview_reading(
     close = int(np.sum(np.abs(diff) <= CLOSE_MISS_PHP))
 
     lines.append(
-        f"Across the {plural(n, 'week')} shown, the {horizon}-week-ahead forecast of the "
+        f"Across the {plural(n, 'week')} with observed prices, the {horizon}-week-ahead forecast of the "
         f"{MODEL_NAMES.get(model, model)} was off by {peso(mean_abs)}/kg on average, "
         f"and {close} of {n} weeks ({close / n:.0%}) landed within {peso(CLOSE_MISS_PHP)}/kg of the actual price."
     )

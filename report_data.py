@@ -77,15 +77,47 @@ def _usable(actual: float | None, week: str, today: date) -> bool:
 
 
 def _overview_section(results: dict, model: str, horizon: int, today: date) -> dict:
-    weeks = results["weeks"]
+    base_weeks = list(results["weeks"])
     block = results["forecast"][str(horizon)]
-    forecast = np.asarray(block[model], dtype=float)
     other = "univariate" if model == "multivariate" else "multivariate"
-    other_forecast = np.asarray(block[other], dtype=float)
-    actual = np.asarray(
-        [float(v) if v is not None and np.isfinite(float(v)) else np.nan for v in block["actual"]],
-        dtype=float,
-    )
+
+    weeks = list(base_weeks)
+    forecast_list = [float(v) for v in block[model]]
+    other_list = [float(v) for v in block[other]]
+    actual_list = [
+        float(v) if v is not None and np.isfinite(float(v)) else np.nan
+        for v in block["actual"]
+    ]
+
+    actual_lookup = {
+        w: float(a) for w, a in zip(base_weeks, actual_list) if np.isfinite(a)
+    }
+
+    future = results.get("future_forecast")
+    if future:
+        f_dates = list(future.get("horizon_dates") or [])[: int(horizon)]
+        f_model = list(future.get(f"{model}_predictions") or [])[: int(horizon)]
+        f_other = list(future.get(f"{other}_predictions") or [])[: int(horizon)]
+        f_actuals = future.get("actual") or {}
+        if isinstance(f_actuals, dict):
+            for k, v in f_actuals.items():
+                try:
+                    if v is not None and np.isfinite(float(v)):
+                        actual_lookup[str(k)] = float(v)
+                except (TypeError, ValueError):
+                    pass
+        existing = set(weeks)
+        for f_date, m_val, o_val in zip(f_dates, f_model, f_other):
+            if f_date not in existing:
+                weeks.append(f_date)
+                forecast_list.append(float(m_val))
+                other_list.append(float(o_val))
+                actual_list.append(actual_lookup.get(f_date, np.nan))
+                existing.add(f_date)
+
+    forecast = np.asarray(forecast_list, dtype=float)
+    other_forecast = np.asarray(other_list, dtype=float)
+    actual = np.asarray(actual_list, dtype=float)
     usable = np.asarray([_usable(a, w, today) for a, w in zip(actual, weeks)], dtype=bool)
     actual_used = np.where(usable, actual, np.nan)
 
@@ -107,7 +139,7 @@ def _overview_section(results: dict, model: str, horizon: int, today: date) -> d
             f"{peso(change, signed=True)}/kg" if np.isfinite(change) else "-",
             f"{pct:+.1f}% from first to final week" if np.isfinite(pct) else "Waiting on official price release",
         ),
-        ("Average deviation (MAE)", f"{peso(mae)}/kg" if np.isfinite(mae) else "-", "Average miss across test weeks"),
+        ("Average deviation (MAE)", f"{peso(mae)}/kg" if np.isfinite(mae) else "-", "Average miss across observed weeks"),
     ]
     diff = np.where(usable, forecast - actual_used, np.nan)
     table = pd.DataFrame(
@@ -123,7 +155,8 @@ def _overview_section(results: dict, model: str, horizon: int, today: date) -> d
         "title": "Overview",
         "intro": (
             f"{horizon}-week-ahead forecasts of the regular-milled retail rice price in the National Capital "
-            f"Region, for {len(weeks)} test weeks ({_nice_date(weeks[0])} to {_nice_date(weeks[-1])}). "
+            f"Region, for {len(base_weeks)} test weeks ({_nice_date(base_weeks[0])} to {_nice_date(base_weeks[-1])}) "
+            f"plus {len(weeks) - len(base_weeks)} future forecasted {'week' if len(weeks) - len(base_weeks) == 1 else 'weeks'}. "
             f"Figures below use the {MODEL_NAMES[model]}. The Difference column shows how far each forecast "
             "was from the actual price."
         ),
@@ -151,7 +184,7 @@ def _overview_section(results: dict, model: str, horizon: int, today: date) -> d
             {
                 "type": "table",
                 "id": "overview_weekly",
-                "title": f"Weekly forecast versus actual ({MODEL_TITLES[model]}, {horizon} weeks ahead)",
+                "title": f"Weekly forecast versus actual ({MODEL_TITLES[model]}, {horizon} {'week' if horizon == 1 else 'weeks'} ahead)",
                 "df": table,
                 "kinds": {
                     "Date": "date",

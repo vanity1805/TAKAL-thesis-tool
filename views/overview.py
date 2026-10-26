@@ -23,6 +23,11 @@ def _reset_week_page() -> None:
     st.session_state["overview_page"] = 0
 
 
+def _horizon_changed() -> None:
+    """Reset pagination when the user changes the forecast horizon dropdown."""
+    st.session_state["overview_page"] = 0
+
+
 def _render_select(
     label: str,
     options: Sequence[str | int],
@@ -61,24 +66,99 @@ def _reset_overview_filters(earliest_data_date: date, latest_data_date: date) ->
     st.session_state["overview_to_date"] = latest_data_date
 
 
-def _money(value: float | None) -> str:
-    if value is None or not np.isfinite(float(value)):
+def _money(value: float | str | None) -> str:
+    if value is None or isinstance(value, str):
+        try:
+            if value is None or str(value).strip() in ("", "-", "—"):
+                return "-"
+            val = float(value)
+        except (TypeError, ValueError):
+            return "-"
+    else:
+        val = float(value)
+    if not np.isfinite(val):
         return "-"
-    return f"₱{float(value):.2f}"
+    return f"₱{val:.2f}"
 
 
 def _usable_actual(week: str, actual, today: date | None = None) -> bool:
+    """Return True only when an actual price is a finite number and its date is not in the future."""
     today = today or date.today()
     try:
         week_date = datetime.strptime(week, "%Y-%m-%d").date()
     except (TypeError, ValueError):
         week_date = None
     try:
-        if actual is None or not np.isfinite(float(actual)):
+        if actual is None or isinstance(actual, str) and actual.strip() in ("", "-", "—"):
+            return False
+        if not np.isfinite(float(actual)):
             return False
     except (TypeError, ValueError):
         return False
     return not (week_date is not None and week_date > today)
+
+
+def _build_combined_series(
+    weeks: list[str],
+    horizon_forecast: dict,
+    horizon: int,
+    future_forecast: dict | None,
+) -> tuple[list[str], dict[str, list[float | None]]]:
+    """Combine historical test weeks with up to ``horizon`` dynamically appended future weeks.
+
+    If actual data later becomes available for any of the future dates (either inside
+    ``horizon_forecast['actual']`` or ``future_forecast['actual']``), it automatically
+    populates that date's actual value so the "-" placeholder is replaced with the real number.
+    """
+    combined_weeks = list(weeks)
+    combined_mv = [float(v) for v in horizon_forecast["multivariate"]]
+    combined_uni = [float(v) for v in horizon_forecast["univariate"]]
+    combined_actual: list[float | None] = [
+        float(v) if v is not None and np.isfinite(float(v)) else None
+        for v in horizon_forecast["actual"]
+    ]
+
+    # Map any known actual prices by ISO date so future rows automatically resolve if data exists
+    actual_lookup: dict[str, float] = {}
+    for w, act in zip(weeks, combined_actual):
+        if act is not None and np.isfinite(act):
+            actual_lookup[w] = float(act)
+
+    if future_forecast:
+        future_dates = list(future_forecast.get("horizon_dates") or [])[: int(horizon)]
+        future_mv = list(future_forecast.get("multivariate_predictions") or [])[: int(horizon)]
+        future_uni = list(future_forecast.get("univariate_predictions") or [])[: int(horizon)]
+        future_actuals = future_forecast.get("actual") or {}
+
+        if isinstance(future_actuals, dict):
+            for f_date, f_val in future_actuals.items():
+                try:
+                    if f_val is not None and np.isfinite(float(f_val)):
+                        actual_lookup[str(f_date)] = float(f_val)
+                except (TypeError, ValueError):
+                    pass
+        elif isinstance(future_actuals, (list, tuple)):
+            for f_date, f_val in zip(future_forecast.get("horizon_dates") or [], future_actuals):
+                try:
+                    if f_val is not None and np.isfinite(float(f_val)):
+                        actual_lookup[str(f_date)] = float(f_val)
+                except (TypeError, ValueError):
+                    pass
+
+        existing_dates = set(combined_weeks)
+        for f_date, mv_val, uni_val in zip(future_dates, future_mv, future_uni):
+            if f_date not in existing_dates:
+                combined_weeks.append(f_date)
+                combined_mv.append(float(mv_val))
+                combined_uni.append(float(uni_val))
+                combined_actual.append(actual_lookup.get(f_date, None))
+                existing_dates.add(f_date)
+
+    return combined_weeks, {
+        "multivariate": combined_mv,
+        "univariate": combined_uni,
+        "actual": combined_actual,
+    }
 
 
 def _render_week_table(weeks: list[str], forecast: dict, active_model: str, horizon: int) -> None:
@@ -105,9 +185,9 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str, hori
     st.session_state.setdefault("overview_from_date", earliest_data_date)
     st.session_state.setdefault("overview_to_date", latest_data_date)
 
-    # New weeks were added to the dataset: widen the filter to the new range so
-    # the latest week is not hidden behind an old "To" date kept by this session.
-    data_range = (earliest_data_date, latest_data_date)
+    # Whenever the date range or selected horizon changes, widen the filter range
+    # so newly appended future horizon rows are immediately visible in the table.
+    data_range = (earliest_data_date, latest_data_date, int(horizon))
     if st.session_state.get("overview_data_range") != data_range:
         st.session_state["overview_from_date"] = earliest_data_date
         st.session_state["overview_to_date"] = latest_data_date
@@ -254,14 +334,27 @@ def _render_week_table(weeks: list[str], forecast: dict, active_model: str, hori
         )
 
 
-def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool = False) -> None:
-    horizon = _render_select(
-        "Forecast Horizon (Weeks Ahead)",
-        tuple(range(1, 13)),
-        "overview_horizon",
-        1,
+def render(
+    weeks: list[str],
+    forecast: dict,
+    active_model: str,
+    show_graph: bool = False,
+    future_forecast: dict | None = None,
+) -> None:
+    horizon = int(
+        _render_select(
+            "Forecast Horizon (Weeks Ahead)",
+            tuple(range(1, 13)),
+            "overview_horizon",
+            1,
+            on_change=_horizon_changed,
+        )
     )
-    horizon_forecast = forecast[str(horizon)]
+    raw_horizon_forecast = forecast[str(horizon)]
+    combined_weeks, horizon_forecast = _build_combined_series(
+        weeks, raw_horizon_forecast, horizon, future_forecast
+    )
+
     selected_forecast = np.asarray(horizon_forecast[active_model], dtype=float)
     raw_actuals = [
         float(val) if val is not None and np.isfinite(float(val)) else float("nan")
@@ -271,7 +364,7 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
 
     today = date.today()
     usable_actuals = np.asarray(
-        [_usable_actual(week, val, today) for week, val in zip(weeks, actual_values)],
+        [_usable_actual(week, val, today) for week, val in zip(combined_weeks, actual_values)],
         dtype=bool,
     )
     plotted_actuals = np.where(usable_actuals, actual_values, np.nan)
@@ -306,10 +399,18 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
         else None
     )
 
+    future_added = len(combined_weeks) - len(weeks)
+    future_note = (
+        f" plus {future_added} forecasted future {'week' if future_added == 1 else 'weeks'} "
+        f"(through {format_week_date(combined_weeks[-1])})"
+        if future_added > 0
+        else ""
+    )
+
     st.markdown(
         f'<div class="page-intro">{horizon}-week-ahead <strong>Regular-Milled</strong> retail rice price forecasts in the '
         f'<strong>National Capital Region (NCR)</strong> across the {len(weeks)}-week held-out test set '
-        f'({format_week_date(weeks[0])} to {format_week_date(weeks[-1])}).</div>',
+        f'({format_week_date(weeks[0])} to {format_week_date(weeks[-1])}){future_note}.</div>',
         unsafe_allow_html=True,
     )
 
@@ -318,8 +419,8 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
         metric_card(
             "Starting observed price",
             f"{_money(starting_actual)}/kg" if np.isfinite(starting_actual) else "-",
-            format_week_date(weeks[0]),
-            "The actual observed composite retail price at the start of the test period.",
+            format_week_date(combined_weeks[0]),
+            "The actual observed composite retail price at the start of the period.",
             badge="Baseline",
             always_dark=False,
         )
@@ -327,8 +428,8 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
         metric_card(
             "Ending forecast",
             f"{_money(ending_forecast)}/kg" if np.isfinite(ending_forecast) else "-",
-            format_week_date(weeks[-1]),
-            f"The Stacked LSTM model's {horizon}-week-ahead forecast for the final week of the test period.",
+            format_week_date(combined_weeks[-1]),
+            f"The Stacked LSTM model's {horizon}-week-ahead forecast for the final week shown ({format_week_date(combined_weeks[-1])}).",
             badge="LSTM",
             always_dark=False,
         )
@@ -347,8 +448,8 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
         metric_card(
             "Average deviation (MAE)",
             f"{_money(average_deviation)}/kg" if np.isfinite(average_deviation) else "-",
-            "Mean absolute error across test weeks",
-            "Mean Absolute Error (MAE): average absolute difference between forecasted and observed prices.",
+            "Mean absolute error across observed weeks",
+            "Mean Absolute Error (MAE): average absolute difference between forecasted and observed prices on weeks where official data is available.",
             badge="Error",
             always_dark=False,
         )
@@ -363,7 +464,7 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
         figure = go.Figure()
         figure.add_trace(
             go.Scatter(
-                x=weeks,
+                x=combined_weeks,
                 y=horizon_forecast["univariate"],
                 name="Univariate baseline",
                 mode="lines",
@@ -374,7 +475,7 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
         is_active = active_model == "multivariate"
         figure.add_trace(
             go.Scatter(
-                x=weeks,
+                x=combined_weeks,
                 y=horizon_forecast["multivariate"],
                 name="Multivariate forecast",
                 mode="lines+markers" if is_active else "lines",
@@ -387,7 +488,7 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
         )
         figure.add_trace(
             go.Scatter(
-                x=weeks,
+                x=combined_weeks,
                 y=plotted_actuals.tolist(),
                 name="Observed price",
                 mode="lines",
@@ -439,8 +540,14 @@ def render(weeks: list[str], forecast: dict, active_model: str, show_graph: bool
 
         # Add the reading box under the chart in technical details mode as well
         render_reading(
-            f"Reading the {horizon}-week-ahead forecast ({len(weeks)} test weeks)",
-            overview_reading(weeks, horizon_forecast[active_model], plotted_actuals.tolist(), active_model, horizon),
+            f"Reading the {horizon}-week-ahead forecast ({len(combined_weeks)} weeks shown)",
+            overview_reading(
+                combined_weeks,
+                horizon_forecast[active_model],
+                plotted_actuals.tolist(),
+                active_model,
+                horizon,
+            ),
         )
     else:
-        _render_week_table(weeks, horizon_forecast, active_model, int(horizon))
+        _render_week_table(combined_weeks, horizon_forecast, active_model, horizon)

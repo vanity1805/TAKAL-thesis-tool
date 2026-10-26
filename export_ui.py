@@ -64,7 +64,7 @@ def export_dialog(results: dict, results_stamp: float, active_model: str) -> Non
         st.markdown("**3. Report settings**")
         columns = st.columns(2)
         with columns[0]:
-            horizon = st.selectbox("Forecast horizon (weeks ahead)", list(range(1, 13)),
+            horizon = st.selectbox("Forecast horizon (week/s ahead)", list(range(1, 13)),
                                    index=horizon - 1, key="export_horizon")
         if "Explainability" in chosen:
             with columns[1]:

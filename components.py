@@ -8,6 +8,8 @@ import io
 import os
 import re
 
+import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -1808,6 +1810,22 @@ def metric_card(
     )
 
 
+def _is_missing_cell(value) -> bool:
+    """Return True if a table cell value is None, NaN, pd.NA, or a hyphen placeholder."""
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip() in ("", "-", "—")
+    try:
+        if pd.isna(value):
+            return True
+    except (TypeError, ValueError):
+        pass
+    if isinstance(value, (float, np.floating)) and not np.isfinite(float(value)):
+        return True
+    return False
+
+
 def render_table(df, align=None, formats=None, label_columns=None, effect_column=None) -> None:
     """Render a DataFrame as the dashboard's standard themed HTML table."""
     align = dict(align or {})
@@ -1821,13 +1839,21 @@ def render_table(df, align=None, formats=None, label_columns=None, effect_column
         return "center"
 
     def fmt(column, value):
+        if _is_missing_cell(value):
+            return "-"
         spec = formats.get(column)
         if callable(spec):
-            return spec(value)
+            try:
+                return spec(value)
+            except (TypeError, ValueError):
+                return "-"
         if spec:
-            return format(value, spec)
-        if isinstance(value, float):
-            return f"{value:,.3f}"
+            try:
+                return format(value, spec)
+            except (TypeError, ValueError):
+                return str(value)
+        if isinstance(value, (float, np.floating)):
+            return f"{float(value):,.3f}"
         return str(value)
 
     head = "".join(
@@ -1842,7 +1868,9 @@ def render_table(df, align=None, formats=None, label_columns=None, effect_column
             if c in label_columns:
                 classes.append("col-label")
             text = fmt(c, row[c])
-            if effect_column and c == effect_column:
+            if text == "-":
+                classes.append("weekly-not-yet")
+            elif effect_column and c == effect_column:
                 lowered = text.lower()
                 if lowered.startswith("raises"):
                     classes.append("effect-up")

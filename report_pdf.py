@@ -103,7 +103,7 @@ def _styles() -> dict[str, ParagraphStyle]:
 # ---- value formatting --------------------------------------------------------
 def fmt(kind: str, value) -> str:
     if value is None or (isinstance(value, float) and not np.isfinite(value)):
-        return "Not yet" if kind in ("peso", "peso_signed") else "-"
+        return "-" if kind in ("peso", "peso_signed") else "-"
     if kind == "date":
         return value.strftime("%b %d, %Y").replace(" 0", " ") if isinstance(value, (date, datetime)) else str(value)
     if kind == "peso":

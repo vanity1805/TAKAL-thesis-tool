@@ -76,6 +76,7 @@ st.query_params["tech"] = str(st.session_state["technical_details"]).lower()
 st.query_params["model"] = "univariate" if active_model == "univariate" else "multivariate"
 
 weeks = RESULTS["weeks"]
+future_forecast = RESULTS.get("future_forecast")
 
 if not st.session_state["technical_details"]:
     st.markdown('<div class="page-heading">Overview</div>', unsafe_allow_html=True)
@@ -84,6 +85,7 @@ if not st.session_state["technical_details"]:
         RESULTS["forecast"],
         active_model,
         show_graph=False,
+        future_forecast=future_forecast,
     )
 else:
     tab_suffix = "\u200b" * int(st.session_state.get("technical_tabs_version", 0))
@@ -103,7 +105,13 @@ else:
 
     with tab_forecast:
         st.markdown('<div class="page-heading">Overview</div>', unsafe_allow_html=True)
-        render_overview(weeks, RESULTS["forecast"], active_model, show_graph=True)
+        render_overview(
+            weeks,
+            RESULTS["forecast"],
+            active_model,
+            show_graph=True,
+            future_forecast=future_forecast,
+        )
 
     with tab_future:
         st.markdown('<div class="page-heading">12-Week Forecast</div>', unsafe_allow_html=True)
