@@ -1,0 +1,9 @@
+# Modelling dependencies for the TAKAL Stacked LSTM pipeline (python -m model.run_all).
+# Requires Python 3.11-3.13. Install with: pip install -r model/requirements.txt
+tensorflow>=2.15,<2.21
+scikit-learn<=1.6.1
+shap>=0.44,<0.52
+scipy>=1.10
+pandas>=2.0
+numpy>=1.26
+openpyxl>=3.1
