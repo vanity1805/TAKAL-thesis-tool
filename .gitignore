@@ -1,0 +1,17 @@
+# Academic documents — keep local, not in the public app repo
+*.pdf
+*.docx
+screenshots/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+.DS_Store
+
+# Written by every pipeline run; machine-specific, so never commit it
+artifacts/pipeline_status.json
